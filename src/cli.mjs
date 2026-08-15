@@ -34,10 +34,12 @@ Azure 正式配音只有在未命中快取且傳入與外送預覽完全相符�
 async function main() {
   if (command === 'help' || args.help) return help();
   if (command === 'init') {
-    const destination = path.resolve(String(args.config || 'codereel.config.json'));
+    const hasExplicitConfig = Boolean(args.config && args.config !== true);
+    const destination = hasExplicitConfig ? path.resolve(String(args.config)) : undefined;
     const sourceTemplate = path.join(root, 'codereel.config.example.json');
-    const target = await initializeConfig({ sourceTemplate, destination, repoPath: args.repo });
-    console.log(`已建立設定檔：${target}`);
+    const result = await initializeConfig({ sourceTemplate, destination, repoPath: args.repo, autoName: !hasExplicitConfig });
+    console.log(`${result.created ? '已建立' : '已沿用'}設定檔：${result.path}`);
+    console.log(`\n下一步：\nnpm run codereel -- doctor --config "${result.path}"\nnpm run codereel -- build --config "${result.path}"`);
     return;
   }
   const configPath = String(args.config || 'codereel.config.json');

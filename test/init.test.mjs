@@ -54,3 +54,40 @@ test('init 缺少 --repo 時直接說明必要參數', async () => {
     /必須提供 --repo/u,
   );
 });
+
+test('init 連續處理不同 repo 時自動建立獨立設定檔', async (context) => {
+  const temporaryRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'codereel-multi-init-'));
+  context.after(async () => await fs.rm(temporaryRoot, { recursive: true, force: true }));
+  const firstRepo = path.join(temporaryRoot, 'FirstRepo');
+  const secondRepo = path.join(temporaryRoot, 'SecondRepo');
+  const defaultDestination = path.join(temporaryRoot, 'codereel.config.json');
+  await fs.mkdir(firstRepo, { recursive: true });
+  await fs.mkdir(secondRepo, { recursive: true });
+
+  const first = await initializeConfig({
+    sourceTemplate: path.join(projectRoot, 'codereel.config.example.json'),
+    destination: defaultDestination,
+    repoPath: firstRepo,
+    autoName: true,
+  });
+  const second = await initializeConfig({
+    sourceTemplate: path.join(projectRoot, 'codereel.config.example.json'),
+    destination: defaultDestination,
+    repoPath: secondRepo,
+    autoName: true,
+  });
+  const repeated = await initializeConfig({
+    sourceTemplate: path.join(projectRoot, 'codereel.config.example.json'),
+    destination: defaultDestination,
+    repoPath: secondRepo,
+    autoName: true,
+  });
+
+  assert.equal(first.path, defaultDestination);
+  assert.equal(first.created, true);
+  assert.equal(second.path, path.join(temporaryRoot, 'SecondRepo.config.json'));
+  assert.equal(second.created, true);
+  assert.equal(repeated.path, second.path);
+  assert.equal(repeated.created, false);
+  assert.equal((await readJson(second.path)).repoPath, secondRepo);
+});

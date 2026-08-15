@@ -41,7 +41,7 @@ npm run demo
 npm run codereel -- init --repo "C:\path\to\source-repo"
 ```
 
-`--repo` 必須指向要製作教材的來源 repo，可使用絕對或相對路徑。`init` 會在 CodeReel 根目錄建立完整的 `codereel.config.json`，並自動寫入來源路徑；不需要自行建立設定檔。
+`--repo` 必須指向要製作教材的來源 repo，可使用絕對或相對路徑。`init` 會自動建立完整設定檔並印出下一步命令；不需要自行建立設定檔。若 `codereel.config.json` 已由其他 repo 使用，會自動改用 `<repo名稱>.config.json`，不會覆寫既有設定。
 
 例如 CodeReel 位於 `C:\Tools\CodeReel`，來源 repo 位於 `D:\Projects\MyApp`：
 

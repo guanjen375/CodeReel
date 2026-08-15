@@ -238,13 +238,39 @@ function createPaths(runRoot, projectId) {
   };
 }
 
-export async function initializeConfig({ sourceTemplate, destination, repoPath }) {
-  const target = path.resolve(destination || 'codereel.config.json');
-  if (await pathExists(target)) throw new Error(`不覆寫既有設定檔：${target}`);
+async function configTargetsRepo(target, resolvedRepoPath) {
+  try {
+    const existing = await readJson(target);
+    if (!existing.repoPath) return false;
+    const existingRepo = path.isAbsolute(existing.repoPath)
+      ? path.normalize(existing.repoPath)
+      : path.resolve(path.dirname(target), existing.repoPath);
+    return existingRepo.toLowerCase() === resolvedRepoPath.toLowerCase();
+  } catch {
+    return false;
+  }
+}
+
+export async function initializeConfig({ sourceTemplate, destination, repoPath, autoName = false }) {
   if (!repoPath || repoPath === true) throw new Error('init 必須提供 --repo <來源 repo 路徑>。');
   const resolvedRepoPath = path.resolve(String(repoPath));
   const repoStat = await fs.stat(resolvedRepoPath).catch(() => null);
   if (!repoStat?.isDirectory()) throw new Error(`--repo 不是可讀取的資料夾：${resolvedRepoPath}`);
+  let target = path.resolve(destination || 'codereel.config.json');
+  if (await pathExists(target)) {
+    if (await configTargetsRepo(target, resolvedRepoPath)) return { path: target, created: false };
+    if (!autoName) throw new Error(`不覆寫既有設定檔：${target}`);
+    const directory = path.dirname(target);
+    const repoName = safeName(path.basename(resolvedRepoPath), 'repository');
+    target = path.join(directory, `${repoName}.config.json`);
+    if (await pathExists(target) && !await configTargetsRepo(target, resolvedRepoPath)) {
+      target = path.join(directory, `${repoName}-${sha256(resolvedRepoPath.toLowerCase()).slice(0, 8)}.config.json`);
+    }
+    if (await pathExists(target)) {
+      if (await configTargetsRepo(target, resolvedRepoPath)) return { path: target, created: false };
+      throw new Error(`不覆寫既有設定檔：${target}`);
+    }
+  }
   const template = sourceTemplate && await pathExists(sourceTemplate) ? await readJson(sourceTemplate) : {};
   const config = mergeDeep(defaults, template);
   config.repoPath = resolvedRepoPath;
@@ -258,7 +284,7 @@ export async function initializeConfig({ sourceTemplate, destination, repoPath }
     config.outputRoot = path.join(path.dirname(resolvedRepoPath), `${safeName(path.basename(resolvedRepoPath), 'repository')}-codereel-output`);
   }
   await writeJsonAtomic(target, config);
-  return target;
+  return { path: target, created: true };
 }
 
 export async function assertRepoReadable(config) {
