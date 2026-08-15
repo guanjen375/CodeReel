@@ -399,7 +399,7 @@ export const claudeModelChoices = [
   { value: 'opus', summary: '分析最完整，適合正式教材' },
   { value: 'sonnet', summary: '品質與速度平衡' },
   { value: 'haiku', summary: '最快，適合先跑通整條流程' },
-  { value: 'fable', summary: '若帳號沒有開通會靜默改用其他模型' },
+  { value: 'fable', summary: '較新的模型，可用性依帳號而定' },
 ];
 
 export function modelMatchesRequest(requested, resolved) {
@@ -421,7 +421,16 @@ async function claudeProbe(config, model) {
   ], probeConfig);
 }
 
-export async function probeClaudeModels(config, choices = claudeModelChoices) {
+export function claudeModelCandidates(config) {
+  const configured = config?.llm?.modelCandidates;
+  if (!Array.isArray(configured) || configured.length === 0) return claudeModelChoices;
+  return configured
+    .map((item) => (typeof item === 'string' ? { value: item, summary: '' } : item))
+    .filter((item) => item?.value)
+    .map((item) => ({ value: String(item.value), summary: String(item.summary || '') }));
+}
+
+export async function probeClaudeModels(config, choices = claudeModelCandidates(config)) {
   return await Promise.all(choices.map(async (choice) => {
     try {
       const probe = await claudeProbe(config, choice.value);

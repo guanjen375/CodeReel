@@ -7,7 +7,8 @@ import { fileURLToPath } from 'node:url';
 import { initializeConfig, loadConfig } from '../src/lib/config.mjs';
 import {
   assertLlmPrivacy, claudeCliArgs, claudeCliContent, claudeCliModel, claudeCliPrompt,
-  claudeShimTargets, llmSetupInstructions, modelMatchesRequest, parseClaudeCliEnvelope, resolveLlmModel,
+  claudeModelCandidates, claudeModelChoices, claudeShimTargets, llmSetupInstructions,
+  modelMatchesRequest, parseClaudeCliEnvelope, resolveLlmModel,
 } from '../src/lib/llm.mjs';
 import { readJson, writeJsonAtomic } from '../src/lib/utils.mjs';
 
@@ -153,6 +154,15 @@ test('claude-cli 搭配 requireLocalLlm=true 會直接拒絕，不會靜默送�
   await writeJsonAtomic(destination, config);
 
   await assert.rejects(() => loadConfig(destination), /requireLocalLlm=true/u);
+});
+
+test('候選模型清單可由設定檔覆寫，不必等程式更新', () => {
+  assert.deepEqual(claudeModelCandidates(claudeConfig()), claudeModelChoices);
+  assert.deepEqual(claudeModelCandidates(claudeConfig({ modelCandidates: [] })), claudeModelChoices);
+  assert.deepEqual(
+    claudeModelCandidates(claudeConfig({ modelCandidates: ['opus', { value: '未來模型', summary: '新推出' }, { summary: '沒有名稱' }] })),
+    [{ value: 'opus', summary: '' }, { value: '未來模型', summary: '新推出' }],
+  );
 });
 
 test('指定模型被靜默換掉時要判定為不相符', () => {

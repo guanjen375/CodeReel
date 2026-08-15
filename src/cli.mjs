@@ -50,10 +50,10 @@ async function chooseModel(config, configPath) {
     console.log('目前無法確認可用模型，先沿用 llm.model。稍後可執行 claude auth login 再重跑 init。');
     return null;
   }
-  console.log('\n分析與課程規劃要用哪個模型？箭頭右邊是實際會計費的模型。');
+  console.log('\n分析與課程規劃要用哪個模型？箭頭右邊是這個帳號實際會跑到的模型。');
   usable.forEach((item, index) => {
     const current = item.value === config.llm.model ? '（目前）' : '';
-    const mismatch = item.matchesRequest ? '' : '［實際換成別的模型］';
+    const mismatch = item.matchesRequest ? '' : '［你的帳號不能用，會改跑左邊以外的模型］';
     console.log(`  ${index + 1}) ${item.value.padEnd(7)} → ${String(item.resolvedModel).padEnd(26)} ${item.summary}${mismatch}${current}`);
   });
   for (const item of probed.filter((entry) => !entry.available)) {
