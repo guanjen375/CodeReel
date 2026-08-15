@@ -8,7 +8,7 @@
 - Node.js 20 或更新版本
 - Microsoft PowerPoint 桌面版
 - FFmpeg 與 ffprobe，且可從 PowerShell 直接執行
-- 已啟動的本機 LLM 服務：Ollama 或 OpenAI-compatible API
+- 已啟動的 Ollama 本機服務
 - 正式影片配音：Azure Speech 付費方案與預建 `zh-TW` 語音
 
 先確認命令可執行：
@@ -59,11 +59,7 @@ npm run codereel -- init --repo "."
 
 這種情況會自動把輸出移到來源 repo 外，避免掃描或覆寫產物。
 
-## 4. 設定本機模型
-
-以下兩種端點擇一設定，不是連續步驟。預設採用 Ollama；完成 Ollama 小節後直接前往「產出投影片」，不需要再設定 OpenAI-compatible API。
-
-### Ollama（預設）
+## 4. 設定 Ollama
 
 安裝 Ollama：
 
@@ -101,21 +97,7 @@ ollama pull qwen3-coder:30b
 ollama list
 ```
 
-### OpenAI-compatible API（選用）
-
-此選項只連接「已另外啟動」的本機 OpenAI-compatible 服務，不會自動連接 OpenAI、ChatGPT 或 Codex，也不會自動建立服務或下載模型。若沒有已在 `127.0.0.1:8080` 提供 `/v1/models` 與 `/v1/chat/completions` 的服務，請跳過這一節並使用 Ollama。
-
-```json
-{
-  "llm": {
-    "provider": "openai-compatible",
-    "baseUrl": "http://127.0.0.1:8080/v1",
-    "model": "auto"
-  }
-}
-```
-
-設定完成後，`doctor` 會先呼叫 `http://127.0.0.1:8080/v1/models`。`"model": "auto"` 只會從該服務回傳的清單選取第一個模型；它不會推測模型名稱或下載模型。端點沒有服務或沒有載入模型時，`doctor` 會顯示 `llm.available=false`，且 `build` 不會繼續。
+`"model": "auto"` 會從 `ollama list` 的已安裝模型中選取第一個模型，不會自動下載。需要固定產出模型時，將設定檔中的 `auto` 改成 `ollama list` 顯示的完整名稱。
 
 只有 `doctor` 顯示 `llm.available=true` 與 `canBuildDeck=true` 後才執行 `build`。若端點未啟動，`doctor` 會列出修復命令。
 
