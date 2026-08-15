@@ -21,13 +21,13 @@ export function llmSetupInstructions(config) {
       '安裝 Ollama：winget install --id Ollama.Ollama --exact --accept-package-agreements --accept-source-agreements',
       '下載快速驗證模型：ollama pull qwen3:4b-instruct',
       `確認端點：${endpoint}/api/tags`,
-      '重新執行：npm run codereel -- doctor --config .\\codereel.config.json',
+      '重新執行：npm run codereel -- doctor',
     ];
   }
   return [
     `啟動目前設定的 OpenAI-compatible 服務：${endpoint}`,
     '或把 llm.provider 改為 ollama、baseUrl 改為 http://127.0.0.1:11434，再安裝並啟動 Ollama。',
-    '重新執行：npm run codereel -- doctor --config .\\codereel.config.json',
+    '重新執行：npm run codereel -- doctor',
   ];
 }
 

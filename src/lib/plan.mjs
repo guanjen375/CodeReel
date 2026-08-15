@@ -51,6 +51,60 @@ function truncateDisplayText(value, maxCharacters) {
   return `${characters.slice(0, maxCharacters - 1).join('').replace(/[，、；：\s]+$/u, '')}。`;
 }
 
+function ensureTerminalSummary(slides, config) {
+  let summaryIndex = -1;
+  for (let index = slides.length - 1; index >= 0; index -= 1) {
+    if (slides[index]?.kind === 'summary') {
+      summaryIndex = index;
+      break;
+    }
+  }
+  if (summaryIndex >= 0) {
+    if (summaryIndex !== slides.length - 1) slides.push(...slides.splice(summaryIndex, 1));
+    return;
+  }
+
+  const topics = [];
+  const topicSlides = [];
+  for (let index = slides.length - 1; index >= 0; index -= 1) {
+    const slide = slides[index];
+    if (['cover', 'agenda', 'summary'].includes(slide?.kind)) continue;
+    const topic = truncateDisplayText(slide.title || slide.section, 28);
+    if (topic && !topics.includes(topic)) {
+      topics.unshift(topic);
+      topicSlides.unshift(slide);
+    }
+    if (topics.length === 3) break;
+  }
+  if (topics.length === 0) topics.push('回顧各章節的操作內容');
+  if (topics.length === 1) topics.push('核對每個步驟的完成結果');
+
+  const evidence = [];
+  const seenEvidence = new Set();
+  for (const slide of topicSlides.length > 0 ? topicSlides : slides) {
+    for (const item of slide?.evidence || []) {
+      const key = `${item.path}:${item.startLine}:${item.endLine}:${item.claim}`;
+      if (!seenEvidence.has(key)) {
+        evidence.push(item);
+        seenEvidence.add(key);
+      }
+      if (evidence.length === 10) break;
+    }
+    if (evidence.length === 10) break;
+  }
+  const summary = {
+    kind: 'summary',
+    section: '課程總結',
+    title: '操作重點回顧',
+    subtitle: '依各章節順序核對操作與結果',
+    bullets: topics,
+    narration: `最後回顧本課程整理的重點：${topics.join('、')}。請依照前面各頁的順序，對照引用的來源內容與畫面列出的成功判斷，逐項核對操作結果。若結果不符，就回到對應步驟重新檢查；所有項目確認完成後，即完成本次課程的操作與驗收。`,
+    evidence,
+  };
+  const maxSlides = Number(config?.project?.maxSlides) || Number.POSITIVE_INFINITY;
+  if (slides.length < maxSlides) slides.push(summary);
+}
+
 export function validateSelection(value, manifest, maxFiles) {
   if (!value || !Array.isArray(value.selectedPaths)) throw new Error('selectedPaths 必須是陣列。');
   if (value.selectedPaths.length === 0 || value.selectedPaths.length > maxFiles) {
@@ -107,14 +161,17 @@ export function normalizeCoursePlanCommandPlacement(plan, config = null) {
     });
   if (!slides.some((slide) => slide.kind === 'agenda')) {
     const topics = [];
+    const topicSlides = [];
     for (const slide of slides) {
       if (['cover', 'summary'].includes(slide.kind)) continue;
       const topic = String(slide.section || slide.title || '').trim();
-      if (topic && !topics.includes(topic)) topics.push(topic);
+      if (topic && !topics.includes(topic)) {
+        topics.push(topic);
+        topicSlides.push(slide);
+      }
       if (topics.length === 5) break;
     }
-    while (topics.length < 2) topics.push(topics.length === 0 ? '環境與設定' : '建置與驗收');
-    const evidence = slides.find((slide) => Array.isArray(slide.evidence) && slide.evidence.length > 0)?.evidence || [];
+    const evidence = topicSlides.flatMap((slide) => slide.evidence || []).slice(0, 10);
     const agenda = {
       kind: 'agenda',
       section: '課程導覽',
@@ -125,9 +182,11 @@ export function normalizeCoursePlanCommandPlacement(plan, config = null) {
       evidence,
     };
     const maxSlides = Number(config?.project?.maxSlides) || Number.POSITIVE_INFINITY;
-    if (slides.length < maxSlides) slides.splice(slides[0]?.kind === 'cover' ? 1 : 0, 0, agenda);
-    else slides[slides[0]?.kind === 'cover' ? 1 : 0] = agenda;
+    if (topics.length >= 2 && evidence.length > 0 && slides.length < maxSlides) {
+      slides.splice(slides[0]?.kind === 'cover' ? 1 : 0, 0, agenda);
+    }
   }
+  ensureTerminalSummary(slides, config);
   return {
     ...plan,
     summary: truncateDisplayText(neutralizeAudienceReferences(plan.summary), 90),

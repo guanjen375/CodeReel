@@ -55,6 +55,12 @@ async function executeStage({ config, state, name, fingerprint, outputs, mutable
   console.log(`→ ${stageLabels[name]}`);
   await state.start(name, fingerprint);
   await logEvent(config, { stage: name, status: 'started', fingerprint });
+  const stageStartedAt = Date.now();
+  const heartbeat = setInterval(() => {
+    const elapsedSeconds = Math.max(1, Math.round((Date.now() - stageStartedAt) / 1000));
+    console.log(`… ${stageLabels[name]}仍在進行（${elapsedSeconds} 秒）`);
+  }, 30000);
+  heartbeat.unref();
   try {
     const result = await run();
     await state.succeed(name, outputs, result?.metadata || {});
@@ -65,6 +71,8 @@ async function executeStage({ config, state, name, fingerprint, outputs, mutable
     await state.fail(name, error);
     await logEvent(config, { stage: name, status: 'failed', fingerprint, error: error.message });
     throw error;
+  } finally {
+    clearInterval(heartbeat);
   }
 }
 

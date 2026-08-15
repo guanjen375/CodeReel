@@ -141,20 +141,18 @@ function addCover(slide, pptx, theme, plan, item, fonts, count) {
 function addAgenda(slide, pptx, theme, item, fonts) {
   const c = theme.colors;
   const bullets = item.bullets.slice(0, 5);
-  const startX = 0.82;
-  const totalW = 11.75;
-  const gap = 0.25;
-  const width = (totalW - gap * (bullets.length - 1)) / bullets.length;
+  const startY = 1.82;
+  const rowH = Math.min(1.02, 4.85 / Math.max(bullets.length, 1));
   bullets.forEach((bullet, index) => {
-    const x = startX + index * (width + gap);
+    const y = startY + index * rowH;
     addText(slide, String(index + 1).padStart(2, '0'), {
-      x, y: 2.05, w: width, h: 0.55,
-      fontFace: fonts.code, fontSize: 30, bold: true, color: index === 0 ? c.accent : c.accentAlt,
+      x: 0.82, y: y + 0.08, w: 0.72, h: 0.48,
+      fontFace: fonts.code, fontSize: 24, bold: true, color: index === 0 ? c.accent : c.accentAlt,
     });
-    slide.addShape(pptx.ShapeType.line, { x, y: 2.78, w: width - 0.05, h: 0, line: { color: c.line, width: 1 } });
+    slide.addShape(pptx.ShapeType.line, { x: 1.68, y: y + rowH - 0.08, w: 10.55, h: 0, line: { color: c.line, width: 0.8 } });
     addText(slide, bullet, {
-      x, y: 3.05, w: width - 0.04, h: 1.3,
-      fontFace: fonts.body, fontSize: 21, bold: true, color: c.text, valign: 'top', breakLine: true,
+      x: 1.68, y, w: 10.45, h: rowH - 0.12,
+      fontFace: fonts.body, fontSize: 18, bold: true, color: c.text, valign: 'mid', breakLine: true,
     });
   });
 }

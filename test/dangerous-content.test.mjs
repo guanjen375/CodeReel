@@ -61,6 +61,53 @@ test('沒有程式碼內容的 code 頁會改為說明頁', () => {
   assert.equal(normalized.slides.find((slide) => slide.title === '第 2 頁').kind, 'concept');
 });
 
+test('既有 summary 會移到最後一頁而不重新生成', () => {
+  const input = planWith({});
+  const existingSummary = input.slides.pop();
+  input.slides.splice(2, 0, existingSummary);
+  input.slides.push({ ...input.slides[2], kind: 'concept', title: '最後的內容頁' });
+
+  const normalized = normalizeCoursePlanCommandPlacement(input, config);
+
+  assert.equal(normalized.slides.at(-1).title, existingSummary.title);
+  assert.equal(normalized.slides.at(-1).kind, 'summary');
+});
+
+test('模型漏掉 summary 時會建立可驗證的固定收尾頁', () => {
+  const input = planWith({});
+  input.slides.pop();
+
+  const normalized = normalizeCoursePlanCommandPlacement(input, config);
+
+  assert.equal(normalized.slides.at(-1).kind, 'summary');
+  assert.equal(normalized.slides.at(-1).evidence.length > 0, true);
+  assert.doesNotThrow(() => validateCoursePlanShape(normalized, config));
+});
+
+test('投影片已達上限且缺少 summary 時不會覆寫既有內容頁', () => {
+  const input = planWith({});
+  input.slides.pop();
+  input.slides.push({ ...input.slides.at(-1), kind: 'concept', title: '必須保留的內容頁' });
+  const maxedConfig = { ...config, project: { ...config.project, maxSlides: input.slides.length } };
+
+  const normalized = normalizeCoursePlanCommandPlacement(input, maxedConfig);
+  assert.equal(normalized.slides.length, maxedConfig.project.maxSlides);
+  assert.equal(normalized.slides.at(-1).title, '必須保留的內容頁');
+  assert.throws(() => validateCoursePlanShape(normalized, maxedConfig), /最後一頁必須是 summary/u);
+});
+
+test('summary 正規化可重複執行而不再改變內容', () => {
+  const input = planWith({});
+  const existingSummary = input.slides.pop();
+  input.slides.splice(2, 0, existingSummary);
+  input.slides.push({ ...input.slides.at(-1), kind: 'concept', title: '末端內容' });
+
+  const once = normalizeCoursePlanCommandPlacement(input, config);
+  const twice = normalizeCoursePlanCommandPlacement(once, config);
+
+  assert.deepEqual(twice, once);
+});
+
 test('即使有證據，高風險刪除命令也不發布', () => {
   assert.throws(() => validateCoursePlanShape(planWith({ code: { text: 'Remove-Item C:\\data -Recurse -Force' } }), config), /高風險命令/u);
 });

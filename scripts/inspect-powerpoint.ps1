@@ -5,6 +5,8 @@ param(
   [Parameter(Mandatory = $true)][string]$AllowedRoot
 )
 
+[Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false)
+$OutputEncoding = [Console]::OutputEncoding
 $ErrorActionPreference = 'Stop'
 
 function Get-NormalizedFullPath {

@@ -131,6 +131,8 @@ npm run codereel -- doctor
 npm run codereel -- build
 ```
 
+`→ 建立證據與課程` 會呼叫本機模型，期間可能數分鐘沒有進入下一階段；命令會每 30 秒顯示已等待時間，完成後自動繼續產生 PPTX 與逐頁圖片。
+
 主要檔案位於：
 
 ```text
