@@ -6,6 +6,64 @@ import { readJson, replaceFileAtomic, safeName, writeJsonAtomic } from './utils.
 
 const SLIDE_W = 13.333;
 const SLIDE_H = 7.5;
+const CODE_UNIT_RATIO = 0.6;
+const BODY_UNIT_RATIO = 0.5;
+const LINE_HEIGHT_RATIO = 1.25;
+const CODE_MIN_PT = 8;
+const BODY_MIN_PT = 12;
+const FIT_SAFETY = 0.92;
+const WIDE_CHARACTER = /[ᄀ-ᅟ⺀-꓏ꥠ-꥿가-힣豈-﫿︐-︙︰-﹯＀-｠￠-￦]/u;
+
+export function displayWidth(text) {
+  let width = 0;
+  for (const character of String(text ?? '')) width += WIDE_CHARACTER.test(character) ? 2 : 1;
+  return width;
+}
+
+function wrappedRows(lines, unitsPerRow) {
+  return lines.reduce((total, line) => total + Math.max(1, Math.ceil(displayWidth(line) / unitsPerRow)), 0);
+}
+
+export function softWrap(lines, unitsPerRow, indent = '    ') {
+  const limit = Math.max(12, unitsPerRow);
+  const rows = [];
+  for (const line of lines) {
+    let rest = String(line);
+    let prefix = '';
+    while (displayWidth(prefix + rest) > limit) {
+      let cut = 0;
+      let width = displayWidth(prefix);
+      for (const character of rest) {
+        const next = width + displayWidth(character);
+        if (next > limit) break;
+        width = next;
+        cut += character.length;
+      }
+      if (cut <= 0) cut = 1;
+      const space = rest.slice(0, cut).lastIndexOf(' ');
+      const breakAt = space > limit / 3 ? space + 1 : cut;
+      rows.push((prefix + rest.slice(0, breakAt)).trimEnd());
+      rest = rest.slice(breakAt);
+      prefix = indent;
+    }
+    if (rest || !prefix) rows.push(prefix + rest);
+  }
+  return rows;
+}
+
+export function fitFontSize(lines, { widthInches, heightInches, basePt, minPt, unitRatio, paraSpacePt = 0, step = 0.5, avoidWrap = false }) {
+  const widthPt = widthInches * 72 * FIT_SAFETY;
+  const heightPt = heightInches * 72 * FIT_SAFETY;
+  const longest = lines.reduce((max, line) => Math.max(max, displayWidth(line)), 1);
+  let size = avoidWrap ? Math.min(basePt, widthPt / (unitRatio * longest)) : basePt;
+  while (size > minPt) {
+    const unitsPerRow = Math.max(1, Math.floor(widthPt / (unitRatio * size)));
+    const rows = wrappedRows(lines, unitsPerRow);
+    if (rows * (size * LINE_HEIGHT_RATIO + paraSpacePt * (size / basePt)) <= heightPt) break;
+    size -= step;
+  }
+  return Math.max(minPt, Math.round(size * 2) / 2);
+}
 
 async function validateDeckArchive(buffer, expectedSlides, notesSourceMarkers) {
   const archive = await JSZip.loadAsync(buffer);
@@ -83,7 +141,11 @@ function addBulletList(slide, pptx, theme, bullets, options = {}) {
     });
     addText(slide, bullet, {
       x: x + 0.62, y: rowY, w: w - 0.62, h: rowH - 0.08,
-      fontFace: options.bodyFont || 'Microsoft JhengHei', fontSize, color: c.text, breakLine: true,
+      fontFace: options.bodyFont || 'Microsoft JhengHei', color: c.text, breakLine: true,
+      fontSize: fitFontSize([bullet], {
+        widthInches: w - 0.72, heightInches: rowH - 0.14, basePt: fontSize,
+        minPt: Math.min(BODY_MIN_PT, fontSize), unitRatio: BODY_UNIT_RATIO, step: 1, avoidWrap: true,
+      }),
     });
   });
 }
@@ -103,11 +165,17 @@ function addCodePanel(slide, pptx, theme, code, fonts, options = {}) {
     x: x + 0.27, y: y + 0.14, w: w - 0.54, h: 0.22,
     fontFace: fonts.body, fontSize: 12, bold: true, color: c.accentAlt,
   });
-  const numbered = String(code.text || '').split(/\r?\n/u).map((line, index) => `${String(index + 1).padStart(2, ' ')}  ${line}`).join('\n');
-  addText(slide, numbered, {
+  const numbered = String(code.text || '').split(/\r?\n/u).map((line, index) => `${String(index + 1).padStart(2, ' ')}  ${line}`);
+  const basePt = theme.typography.codePt;
+  const fontSize = fitFontSize(numbered, {
+    widthInches: w - 0.62, heightInches: h - 1, basePt,
+    minPt: CODE_MIN_PT, unitRatio: CODE_UNIT_RATIO, paraSpacePt: 5, avoidWrap: true,
+  });
+  const unitsPerRow = Math.floor((w - 0.62) * 72 * FIT_SAFETY / (CODE_UNIT_RATIO * fontSize));
+  addText(slide, softWrap(numbered, unitsPerRow).join('\n'), {
     x: x + 0.28, y: y + 0.68, w: w - 0.56, h: h - 0.94,
-    fontFace: fonts.code, fontSize: theme.typography.codePt, color: c.codeText,
-    valign: 'top', breakLine: true, paraSpaceAfterPt: 5, margin: 0.03,
+    fontFace: fonts.code, fontSize, color: c.codeText,
+    valign: 'top', breakLine: true, paraSpaceAfterPt: Math.max(1, Math.round(5 * (fontSize / basePt))), margin: 0.03,
   });
 }
 
