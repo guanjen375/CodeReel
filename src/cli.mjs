@@ -14,7 +14,7 @@ const command = args._[0] || 'help';
 const root = fileURLToPath(new URL('../', import.meta.url));
 
 function interactive() {
-  return Boolean(process.stdin.isTTY && process.stdout.isTTY) && !args['no-prompt'];
+  return Boolean(process.stdin.isTTY && process.stdout.isTTY);
 }
 
 async function ask(question, fallback = '') {
@@ -57,10 +57,6 @@ async function chooseModel(config, configPath) {
 }
 
 async function resolvePurpose(config) {
-  if (args.purpose && args.purpose !== true) {
-    const purpose = String(args.purpose).trim();
-    if (purpose) return purpose;
-  }
   if (!interactive()) return config.project.purpose;
   console.log('\n這份教材要教什麼？方向會決定選哪些檔案與每一頁的內容。');
   console.log(`目前設定：${config.project.purpose}`);
@@ -78,9 +74,9 @@ function help() {
 用法：
   codereel init --repo <repo路徑> [--config codereel.config.json] [--model <模型名稱>]
   codereel doctor [--config <設定檔>]
-  codereel analyze [--config <設定檔>] [--purpose "<課程目的>"] [--force]
-  codereel build [--config <設定檔>] [--purpose "<課程目的>"] [--force] [--overwrite-deck-edits]
-  codereel run [--config <設定檔>] [--purpose "<課程目的>"] [--approve-tts=<egress digest>] [--force] [--overwrite-deck-edits]
+  codereel analyze [--config <設定檔>] [--force]
+  codereel build [--config <設定檔>] [--force] [--overwrite-deck-edits]
+  codereel run [--config <設定檔>] [--approve-tts=<egress digest>] [--force] [--overwrite-deck-edits]
   codereel qa [--config <設定檔>]
   codereel status [--config <設定檔>]
 
@@ -91,7 +87,7 @@ function help() {
 
 省略 --config 時，使用最近一次 init 選定的設定檔。
 init 會偵測可用模型讓你挑；analyze／build／run 會先確認課程目的。
-加上 --no-prompt 可跳過所有互動詢問，直接沿用設定檔的值。
+非互動環境（腳本、CI）不會詢問，直接沿用設定檔的值。
 Azure 正式配音只有在未命中快取且傳入與外送預覽完全相符的 --approve-tts digest 時才會呼叫。`);
 }
 
