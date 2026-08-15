@@ -2,6 +2,8 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { isPathInside, pathExists, readJson, safeName, sha256, writeJsonAtomic } from './utils.mjs';
 
+const activeConfigRelativePath = path.join('.codereel', 'active-config.json');
+
 const defaults = {
   outputRoot: './output',
   project: {
@@ -140,6 +142,44 @@ export async function loadConfig(configPath) {
   raw.cacheRoot = path.join(raw.outputRoot, '.codereel-cache', raw.runId);
   validateConfig(raw);
   return raw;
+}
+
+export async function setActiveConfig(configPath, workingDirectory = process.cwd()) {
+  const absoluteConfigPath = path.resolve(workingDirectory, String(configPath));
+  const configStat = await fs.lstat(absoluteConfigPath).catch(() => null);
+  if (!configStat?.isFile() || configStat.isSymbolicLink()) throw new Error(`無法啟用非一般設定檔：${absoluteConfigPath}`);
+  const activeConfigPath = path.resolve(workingDirectory, activeConfigRelativePath);
+  await writeJsonAtomic(activeConfigPath, {
+    schemaVersion: 1,
+    configPath: absoluteConfigPath,
+  });
+  return activeConfigPath;
+}
+
+export async function resolveConfigPath(configArgument, workingDirectory = process.cwd()) {
+  if (configArgument === true) throw new Error('--config 必須提供設定檔路徑。');
+  if (configArgument) return path.resolve(workingDirectory, String(configArgument));
+
+  const activeConfigPath = path.resolve(workingDirectory, activeConfigRelativePath);
+  if (!await pathExists(activeConfigPath)) {
+    throw new Error(`尚未選定目前專案。\n請先執行 codereel init --repo <來源 repo 路徑>，或加入 --config <設定檔>。`);
+  }
+
+  let active;
+  try {
+    active = await readJson(activeConfigPath);
+  } catch {
+    throw new Error(`目前設定紀錄無法讀取：${activeConfigPath}\n請重新執行 codereel init --repo <來源 repo 路徑>。`);
+  }
+  if (active?.schemaVersion !== 1 || typeof active.configPath !== 'string' || !path.isAbsolute(active.configPath)) {
+    throw new Error(`目前設定紀錄格式錯誤：${activeConfigPath}\n請重新執行 codereel init --repo <來源 repo 路徑>。`);
+  }
+  const resolved = path.normalize(active.configPath);
+  const configStat = await fs.lstat(resolved).catch(() => null);
+  if (!configStat?.isFile() || configStat.isSymbolicLink()) {
+    throw new Error(`目前設定檔已不存在：${resolved}\n請重新執行 codereel init --repo <來源 repo 路徑>。`);
+  }
+  return resolved;
 }
 
 function validateConfig(config) {

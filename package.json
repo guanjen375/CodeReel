@@ -9,10 +9,10 @@
   },
   "scripts": {
     "codereel": "node ./src/cli.mjs",
-    "doctor": "node ./src/cli.mjs doctor --config ./codereel.config.json",
-    "analyze": "node ./src/cli.mjs analyze --config ./codereel.config.json",
-    "build": "node ./src/cli.mjs build --config ./codereel.config.json",
-    "run": "node ./src/cli.mjs run --config ./codereel.config.json",
+    "doctor": "node ./src/cli.mjs doctor",
+    "analyze": "node ./src/cli.mjs analyze",
+    "build": "node ./src/cli.mjs build",
+    "run": "node ./src/cli.mjs run",
     "demo": "node ./src/cli.mjs run --config ./examples/demo.config.json --force",
     "test": "node --test"
   },

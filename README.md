@@ -41,13 +41,14 @@ npm run demo
 npm run codereel -- init --repo "C:\path\to\source-repo"
 ```
 
-`--repo` 必須指向要製作教材的來源 repo，可使用絕對或相對路徑。`init` 會自動建立完整設定檔並印出下一步命令；不需要自行建立設定檔。若 `codereel.config.json` 已由其他 repo 使用，會自動改用 `<repo名稱>.config.json`，不會覆寫既有設定。
+`--repo` 必須指向要製作教材的來源 repo，可使用絕對或相對路徑。`init` 會建立完整設定檔並將它設為目前專案；後續命令不需要填設定檔名稱。切換 repo 時重新執行一次 `init` 即可，既有設定不會被覆寫。
 
 例如 CodeReel 位於 `C:\Tools\CodeReel`，來源 repo 位於 `D:\Projects\MyApp`：
 
 ```powershell
 PS C:\Tools\CodeReel> npm run codereel -- init --repo "D:\Projects\MyApp"
-PS C:\Tools\CodeReel> npm run codereel -- build --config .\codereel.config.json
+PS C:\Tools\CodeReel> npm run codereel -- doctor
+PS C:\Tools\CodeReel> npm run codereel -- build
 ```
 
 若要直接分析 CodeReel 本身，也可執行：
@@ -60,7 +61,7 @@ npm run codereel -- init --repo "."
 
 ## 4. 設定本機模型
 
-在 `codereel.config.json` 選擇一種端點。
+在 `init` 顯示的設定檔中選擇一種端點。
 
 ### Ollama（預設）
 
@@ -121,13 +122,13 @@ ollama list
 先關閉已開啟的 PowerPoint，再檢查環境：
 
 ```powershell
-npm run codereel -- doctor --config .\codereel.config.json
+npm run codereel -- doctor
 ```
 
 建立課程計畫、PPTX、speaker notes 與逐頁 PNG：
 
 ```powershell
-npm run codereel -- build --config .\codereel.config.json
+npm run codereel -- build
 ```
 
 主要檔案位於：
@@ -152,7 +153,7 @@ $env:AZURE_SPEECH_REGION = '<your-region>'
 先建立付費語音外送預覽：
 
 ```powershell
-npm run codereel -- run --config .\codereel.config.json
+npm run codereel -- run
 ```
 
 第一次執行會在付費前停止，並建立：
@@ -164,7 +165,7 @@ output\<repo>-<來源識別碼>\intermediate\tts-egress-report.json
 確認報告中的旁白、voice、endpoint、字數與費用後，複製 `approvalFlag` 內的 digest：
 
 ```powershell
-npm run codereel -- run --config .\codereel.config.json --approve-tts=<報告中的-digest>
+npm run codereel -- run --approve-tts=<報告中的-digest>
 ```
 
 旁白、voice 或 endpoint 只要變更，就必須重新產生並核准 digest。未變更的逐頁語音會直接命中快取，不會再次送出。
@@ -182,17 +183,19 @@ output\<repo>-<來源識別碼>\qa\qa-report.json
 
 ```powershell
 # 只建立 repo 證據與課程計畫
-npm run codereel -- analyze --config .\codereel.config.json
+npm run codereel -- analyze
 
 # 查看各階段狀態
-npm run codereel -- status --config .\codereel.config.json
+npm run codereel -- status
 
 # 重新執行 QA
-npm run codereel -- qa --config .\codereel.config.json
+npm run codereel -- qa
 
 # 強制重跑管線；相同逐頁語音仍可命中內容快取
-npm run codereel -- run --config .\codereel.config.json --force
+npm run codereel -- run --force
 ```
+
+最近一次 `init` 的 repo 會保持為目前專案。需要臨時指定其他設定檔時，才加入 `--config .\其他設定檔.json`。
 
 若 PPTX 已人工修改，來源或模板也同時變更，CodeReel 會停止以避免覆寫。確定要重建時加入 `--overwrite-deck-edits`；原檔會先備份到 `deck\backups`。
 

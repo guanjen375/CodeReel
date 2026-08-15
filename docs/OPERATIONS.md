@@ -1,9 +1,11 @@
 # 操作手冊
 
+以下命令使用最近一次 `init` 選定的 repo；需要切換時先重新執行 `init --repo <repo路徑>`。
+
 ## 1. Doctor
 
 ```powershell
-npm run codereel -- doctor --config .\codereel.config.json
+npm run codereel -- doctor
 ```
 
 必要通過：Node.js、repo 路徑、PowerPoint、FFmpeg／ffprobe、本機 LLM。TTS 只有在要產生影片時才是必要項目。
@@ -11,7 +13,7 @@ npm run codereel -- doctor --config .\codereel.config.json
 ## 2. Analyze
 
 ```powershell
-npm run codereel -- analyze --config .\codereel.config.json
+npm run codereel -- analyze
 ```
 
 人工檢查：
@@ -25,7 +27,7 @@ npm run codereel -- analyze --config .\codereel.config.json
 ## 3. Build
 
 ```powershell
-npm run codereel -- build --config .\codereel.config.json
+npm run codereel -- build
 ```
 
 人工檢查：
@@ -40,7 +42,7 @@ PPTX 可修改版面、內文，以及分隔標記前的 speaker notes；請保�
 確定要以新生成版本取代人工編輯時才使用：
 
 ```powershell
-npm run codereel -- build --config .\codereel.config.json --overwrite-deck-edits
+npm run codereel -- build --overwrite-deck-edits
 ```
 
 舊 PPTX 會先備份到 `deck\backups`。
@@ -50,19 +52,19 @@ npm run codereel -- build --config .\codereel.config.json --overwrite-deck-edits
 第一次執行可故意不給核准：
 
 ```powershell
-npm run codereel -- run --config .\codereel.config.json
+npm run codereel -- run
 ```
 
 若有未命中快取的 Azure 文字，程序會停止並產生 `tts-egress-report.json`。核對 exact text、字元數、voice、rate 與定價 snapshot 後再執行：
 
 ```powershell
-npm run codereel -- run --config .\codereel.config.json --approve-tts=<報告中的-digest>
+npm run codereel -- run --approve-tts=<報告中的-digest>
 ```
 
 ## 5. 發布前 QA
 
 ```powershell
-npm run codereel -- qa --config .\codereel.config.json
+npm run codereel -- qa
 ```
 
 必要條件：
@@ -79,14 +81,14 @@ npm run codereel -- qa --config .\codereel.config.json
 ## 中斷與重跑
 
 ```powershell
-npm run codereel -- status --config .\codereel.config.json
-npm run codereel -- run --config .\codereel.config.json --approve-tts=<報告中的-digest>
+npm run codereel -- status
+npm run codereel -- run --approve-tts=<報告中的-digest>
 ```
 
 失敗階段會標成 `failed`，成功且 fingerprint 相同的階段會跳過。若要重跑所有階段：
 
 ```powershell
-npm run codereel -- run --config .\codereel.config.json --approve-tts=<報告中的-digest> --force
+npm run codereel -- run --approve-tts=<報告中的-digest> --force
 ```
 
 即使使用 `--force`，逐頁語音仍先查內容 cache。

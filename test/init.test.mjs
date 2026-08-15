@@ -4,7 +4,7 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { initializeConfig } from '../src/lib/config.mjs';
+import { initializeConfig, resolveConfigPath, setActiveConfig } from '../src/lib/config.mjs';
 import { isPathInside, readJson } from '../src/lib/utils.mjs';
 
 const projectRoot = fileURLToPath(new URL('../', import.meta.url));
@@ -90,4 +90,48 @@ test('init 連續處理不同 repo 時自動建立獨立設定檔', async (conte
   assert.equal(repeated.path, second.path);
   assert.equal(repeated.created, false);
   assert.equal((await readJson(second.path)).repoPath, secondRepo);
+});
+
+test('init 選定的設定檔可供後續命令直接沿用', async (context) => {
+  const temporaryRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'codereel-active-config-'));
+  context.after(async () => await fs.rm(temporaryRoot, { recursive: true, force: true }));
+  const repo = path.join(temporaryRoot, 'SourceRepo');
+  const configPath = path.join(temporaryRoot, 'SourceRepo.config.json');
+  await fs.mkdir(repo, { recursive: true });
+
+  await initializeConfig({
+    sourceTemplate: path.join(projectRoot, 'codereel.config.example.json'),
+    destination: configPath,
+    repoPath: repo,
+  });
+  const pointerPath = await setActiveConfig(configPath, temporaryRoot);
+
+  assert.equal(await resolveConfigPath(undefined, temporaryRoot), configPath);
+  assert.equal((await readJson(pointerPath)).configPath, configPath);
+  assert.equal(
+    await resolveConfigPath('.\\explicit.config.json', temporaryRoot),
+    path.join(temporaryRoot, 'explicit.config.json'),
+  );
+});
+
+test('目前設定紀錄損壞或目標消失時不會退回舊設定', async (context) => {
+  const temporaryRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'codereel-active-fail-'));
+  context.after(async () => await fs.rm(temporaryRoot, { recursive: true, force: true }));
+  const configPath = path.join(temporaryRoot, 'current.config.json');
+  await fs.writeFile(configPath, '{}\n', 'utf8');
+  const pointerPath = await setActiveConfig(configPath, temporaryRoot);
+  await fs.rm(configPath);
+
+  await assert.rejects(() => resolveConfigPath(undefined, temporaryRoot), /目前設定檔已不存在/u);
+
+  await fs.writeFile(pointerPath, '{broken', 'utf8');
+  await assert.rejects(() => resolveConfigPath(undefined, temporaryRoot), /目前設定紀錄無法讀取/u);
+});
+
+test('目前設定紀錄不存在時不會沿用舊的預設設定', async (context) => {
+  const temporaryRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'codereel-active-missing-'));
+  context.after(async () => await fs.rm(temporaryRoot, { recursive: true, force: true }));
+  await fs.writeFile(path.join(temporaryRoot, 'codereel.config.json'), '{}\n', 'utf8');
+
+  await assert.rejects(() => resolveConfigPath(undefined, temporaryRoot), /尚未選定目前專案/u);
 });
