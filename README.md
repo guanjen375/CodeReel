@@ -59,7 +59,35 @@ claude auth status
 
 桌面版 Claude Code App 與 CLI 的登入狀態是分開的。App 可以正常使用，不代表 CLI 也可以；`claude auth status` 顯示 `loggedIn: true` 但實際呼叫回 `401 OAuth access token has been revoked` 時，重跑一次 `claude auth login` 即可。
 
-分析與課程規劃會呼叫本機的 `claude` 命令，用的是你的 Claude 訂閱額度，不需要 API key，也不會另外計費。下一步的 `init` 會直接把這些設定寫進設定檔，正常情況不需要手動修改：
+分析與課程規劃會呼叫本機的 `claude` 命令，用的是你的 Claude 訂閱額度，不需要 API key，也不會另外計費。這一步只要登入成功就完成了，不需要手動建立或編輯任何設定檔；模型相關的設定會由下一步的 `init` 自動寫好。
+
+CodeReel 呼叫 CLI 時固定加上 `--tools ""`、`--safe-mode`、`--no-session-persistence`，並在來源 repo 之外的暫存目錄執行：模型只做文字生成，不會讀寫檔案、不載入 CLAUDE.md 與外掛，也不會把來源內容留在 Claude Code 的 session 紀錄。
+
+這會把選中的原始碼送到 Anthropic。要維持原始碼不離開本機時，請改用 `llm.provider` 為 `ollama` 的設定；此時 `privacy.requireLocalLlm` 可設回 `true`，`claude-cli` 與 `requireLocalLlm=true` 併用會直接被設定檔驗證擋下。
+
+## 4. 建立設定檔
+
+每個要製作教材的來源 repo 各做一次。
+
+```powershell
+npm run codereel -- init --repo "C:\path\to\source-repo"
+```
+
+`--repo` 必須指向要製作教材的來源 repo，可使用絕對或相對路徑。命令仍然在 CodeReel 根目錄執行，不需要切換進來源 repo。例如 CodeReel 位於 `C:\Tools\CodeReel`、來源 repo 位於 `D:\Projects\MyApp`：
+
+```powershell
+PS C:\Tools\CodeReel> npm run codereel -- init --repo "D:\Projects\MyApp"
+已建立設定檔：C:\Tools\CodeReel\codereel.config.json
+已設為目前專案。
+
+下一步：
+npm run codereel -- doctor
+npm run codereel -- build
+```
+
+`init` 印出的就是設定檔位置，之後要調整任何設定都是改這個檔案。它同時會被設為目前專案，因此後續命令不需要填設定檔名稱。切換 repo 時重新執行一次 `init` 即可：既有設定不會被覆寫，CodeReel 會另外建立以 repo 命名的設定檔（例如 `MyApp.config.json`）。
+
+第 3 步的 Claude Code 設定已經寫在這個檔案裡，預設值可直接使用：
 
 ```json
 {
@@ -75,27 +103,7 @@ claude auth status
 }
 ```
 
-`"model": "auto"` 表示交給 Claude Code 目前設定的模型；要固定產出模型時，改成 `opus`、`sonnet` 或完整 model id（例如 `claude-opus-5`）。
-
-CodeReel 呼叫 CLI 時固定加上 `--tools ""`、`--safe-mode`、`--no-session-persistence`，並在來源 repo 之外的暫存目錄執行：模型只做文字生成，不會讀寫檔案、不載入 CLAUDE.md 與外掛，也不會把來源內容留在 Claude Code 的 session 紀錄。
-
-這會把 `llm.maxSourceChars` 範圍內選中的原始碼送到 Anthropic。要維持原始碼不離開本機時，請改用 `llm.provider` 為 `ollama` 的設定；此時 `privacy.requireLocalLlm` 可設回 `true`，`claude-cli` 與 `requireLocalLlm=true` 併用會直接被設定檔驗證擋下。
-
-## 4. 建立設定檔
-
-每個要製作教材的來源 repo 各做一次。
-
-```powershell
-npm run codereel -- init --repo "C:\path\to\source-repo"
-```
-
-`--repo` 必須指向要製作教材的來源 repo，可使用絕對或相對路徑。命令仍然在 CodeReel 根目錄執行，不需要切換進來源 repo。例如 CodeReel 位於 `C:\Tools\CodeReel`、來源 repo 位於 `D:\Projects\MyApp`：
-
-```powershell
-PS C:\Tools\CodeReel> npm run codereel -- init --repo "D:\Projects\MyApp"
-```
-
-`init` 會建立完整設定檔並將它設為目前專案，後續命令不需要填設定檔名稱。切換 repo 時重新執行一次 `init` 即可，既有設定不會被覆寫。
+`"model": "auto"` 表示交給 Claude Code 目前設定的模型。要固定產出模型時，把 `auto` 改成 `opus`、`sonnet` 或完整 model id（例如 `claude-opus-5`）；正式產出教材建議固定模型，否則每次 `build` 可能換到不同模型。`claudeExecutable` 只有在 `claude` 不在 PATH、或 Windows 上只找得到 `.cmd` 時才需要改成 `claude.exe` 的完整路徑。
 
 ## 5. 產出投影片
 
