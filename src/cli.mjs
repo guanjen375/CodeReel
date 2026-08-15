@@ -119,6 +119,9 @@ async function main() {
         const label = report.llm.provider === 'claude-cli' ? 'Claude Code CLI 尚未就緒' : '本機 LLM 尚未就緒';
         console.error(`\n${label}：\n${report.llm.nextSteps.map((step) => `- ${step}`).join('\n')}`);
       }
+      if (report.renderer?.available === false && report.renderer.nextSteps?.length) {
+        console.error(`\n投影片 renderer 尚未就緒：\n${report.renderer.nextSteps.map((step) => `- ${step}`).join('\n')}`);
+      }
       process.exitCode = 2;
     }
     return;

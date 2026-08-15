@@ -17,7 +17,9 @@
 |---|---|---|
 | Windows | `powerpoint` | Microsoft PowerPoint 桌面版 |
 | macOS | `libreoffice` | `brew install --cask libreoffice` 與 `brew install poppler` |
-| Linux | `libreoffice` | `sudo apt install libreoffice-impress poppler-utils` |
+| Linux | `libreoffice` | `sudo apt install libreoffice-impress poppler-utils fonts-noto-cjk` |
+
+`init` 也會依平台填好繁中與等寬字型（Windows 用 Microsoft JhengHei／Cascadia Mono，macOS 用 PingFang TC／Menlo，Linux 用 Noto Sans CJK TC／DejaVu Sans Mono）。Linux 少裝 CJK 字型的話，投影片上的中文會變成空白方框，所以上表的 `fonts-noto-cjk` 不能省。
 
 **Windows 11 是唯一經過完整實測的環境**；macOS 與 Linux 的路徑已實作並通過單元測試，但尚未跑過完整產出。
 

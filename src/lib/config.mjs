@@ -106,6 +106,12 @@ const defaults = {
   privacy: { requireLocalLlm: false, sendOnlyNarrationToTts: true },
 };
 
+export function defaultFonts(platform = process.platform) {
+  if (platform === 'win32') return { fontFace: 'Microsoft JhengHei', codeFontFace: 'Cascadia Mono' };
+  if (platform === 'darwin') return { fontFace: 'PingFang TC', codeFontFace: 'Menlo' };
+  return { fontFace: 'Noto Sans CJK TC', codeFontFace: 'DejaVu Sans Mono' };
+}
+
 function mergeDeep(base, override) {
   if (Array.isArray(override)) return [...override];
   if (!override || typeof override !== 'object') return override ?? base;
@@ -326,7 +332,7 @@ export async function initializeConfig({ sourceTemplate, destination, repoPath, 
   const template = sourceTemplate && await pathExists(sourceTemplate) ? await readJson(sourceTemplate) : {};
   const config = mergeDeep(defaults, template);
   config.repoPath = resolvedRepoPath;
-  config.slides.renderProvider = defaultRenderProvider();
+  config.slides = { ...config.slides, ...defaultFonts(), renderProvider: defaultRenderProvider() };
   if (config.slides?.themeFile && !path.isAbsolute(config.slides.themeFile)) {
     const templateDirectory = sourceTemplate ? path.dirname(path.resolve(sourceTemplate)) : process.cwd();
     config.slides.themeFile = path.resolve(templateDirectory, config.slides.themeFile);

@@ -4,7 +4,7 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { initializeConfig, loadConfig } from '../src/lib/config.mjs';
+import { defaultFonts, initializeConfig, loadConfig } from '../src/lib/config.mjs';
 import {
   checkRenderer, defaultRenderProvider, libreOfficeConvertArgs, pdfToPpmArgs, renderDeck,
 } from '../src/lib/render.mjs';
@@ -28,6 +28,12 @@ test('預設 renderer 依平台決定', () => {
   assert.equal(defaultRenderProvider('win32'), 'powerpoint');
   assert.equal(defaultRenderProvider('linux'), 'libreoffice');
   assert.equal(defaultRenderProvider('darwin'), 'libreoffice');
+});
+
+test('預設字型依平台決定，各平台都拿得到繁中與等寬字型', () => {
+  assert.deepEqual(defaultFonts('win32'), { fontFace: 'Microsoft JhengHei', codeFontFace: 'Cascadia Mono' });
+  assert.deepEqual(defaultFonts('darwin'), { fontFace: 'PingFang TC', codeFontFace: 'Menlo' });
+  assert.deepEqual(defaultFonts('linux'), { fontFace: 'Noto Sans CJK TC', codeFontFace: 'DejaVu Sans Mono' });
 });
 
 test('LibreOffice 轉檔使用獨立設定檔目錄，不會撞到已開啟的 LibreOffice', () => {
