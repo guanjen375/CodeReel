@@ -180,25 +180,50 @@ $env:AZURE_SPEECH_KEY = '<your-key>'
 $env:AZURE_SPEECH_REGION = '<your-region>'
 ```
 
-先建立付費語音外送預覽：
+先建立外送預覽：
 
 ```powershell
 npm run codereel -- run
 ```
 
-第一次執行會在付費前停止，並建立：
+第一次執行會在送出任何文字之前停止，並建立：
 
 ```text
 output\<repo>-<來源識別碼>\intermediate\tts-egress-report.json
 ```
 
-確認報告中的旁白、voice、endpoint、字數與費用後，複製 `approvalFlag` 內的 digest：
+這份報告要看的是**送出去的是什麼**，不是花多少錢：
+
+| 欄位 | 確認什麼 |
+|---|---|
+| `items` | 每一頁完整的旁白原文 — 這是唯一會離開你機器的內容 |
+| `endpoint` | 送到哪個 Azure 區域 |
+| `voice`、`outputFormat` | 用哪個聲音、輸出什麼格式 |
+| `billableCharacters` | 計費字元總數 |
+
+確認完之後，複製 `approvalFlag` 內的 digest 再跑一次：
 
 ```powershell
 npm run codereel -- run --approve-tts=<報告中的-digest>
 ```
 
-旁白、voice 或 endpoint 只要變更，就必須重新產生並核准 digest。未變更的逐頁語音會直接命中快取，不會再次送出。
+digest 是那批內容的雜湊。旁白、voice、endpoint 或格式只要變更，digest 就會變，必須重新確認一次 — 你不可能核准了 A 卻送出 B。未變更的逐頁語音會直接命中快取，不會再次送出。
+
+### 費用
+
+報告預設不會換算金額，只給字元數。要自己估算的話：`字元數 ÷ 1,000,000 × 每百萬字元單價`，單價以 [Azure Speech 定價](https://azure.microsoft.com/pricing/details/cognitive-services/speech-services/)當日的區域牌價為準。
+
+實務上這筆錢很小 — 一份 18 頁、2,562 字的教材大約是零點零幾美元，而設定檔的硬上限 `tts.maxBillableCharacters: 30000` 換算過去也不到一美元。**真正需要謹慎的不是金額，是旁白文字外送，以及免費層與付費層的商用輸出權差異**（見[成本與語音權利](./docs/COST-AND-RIGHTS.md)）。
+
+想讓報告直接顯示估算金額，就在設定檔填入單價；填了之後 `tts.maxEstimatedCost` 才會生效，沒填時該上限不會作用：
+
+```json
+"ratePerMillionCharacters": 16,
+"pricingCurrency": "USD",
+"pricingSnapshotDate": "2026-08-16"
+```
+
+注意報告裡的 `rate` 欄位是**語速**（例如 `-6%`），不是價格。
 
 完成後的主要檔案位於：
 
