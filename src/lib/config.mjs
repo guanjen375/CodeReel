@@ -18,9 +18,10 @@ const defaults = {
     model: 'auto',
     apiKeyEnv: '',
     temperature: 0.2,
-    timeoutMs: 180000,
+    timeoutMs: 600000,
+    contextWindow: 32768,
     maxResponseBytes: 4194304,
-    maxSourceChars: 180000,
+    maxSourceChars: 32000,
     maxSelectedFiles: 28,
   },
   slides: {
@@ -158,6 +159,12 @@ function validateConfig(config) {
   }
   if (!Number.isInteger(config.llm.maxResponseBytes) || config.llm.maxResponseBytes < 65536 || config.llm.maxResponseBytes > 16 * 1024 * 1024) {
     throw new Error('llm.maxResponseBytes 必須介於 65536 與 16777216。');
+  }
+  if (!Number.isInteger(config.llm.timeoutMs) || config.llm.timeoutMs < 1000 || config.llm.timeoutMs > 3_600_000) {
+    throw new Error('llm.timeoutMs 必須介於 1000 與 3600000 毫秒。');
+  }
+  if (config.llm.provider === 'ollama' && (!Number.isInteger(config.llm.contextWindow) || config.llm.contextWindow < 16384 || config.llm.contextWindow > 262144)) {
+    throw new Error('使用 Ollama 時，llm.contextWindow 必須介於 16384 與 262144。');
   }
   if (!['azure', 'piper', 'fixture', 'none'].includes(config.tts.provider)) {
     throw new Error(`不支援的 tts.provider：${config.tts.provider}`);

@@ -42,6 +42,12 @@ async function fetchLocalLlm(url, options, config) {
   try {
     return await fetch(url, options);
   } catch (error) {
+    if (error?.name === 'TimeoutError') {
+      const timeoutError = new Error(`本機 LLM 等候超過 ${config.llm.timeoutMs} 毫秒；可提高 llm.timeoutMs 後重試。`);
+      timeoutError.code = 'LLM_TIMEOUT';
+      timeoutError.cause = error;
+      throw timeoutError;
+    }
     throw localLlmConnectionError(config, error);
   }
 }
@@ -83,6 +89,46 @@ function extractJson(text) {
   const end = cleaned.lastIndexOf(closer);
   if (end <= start) throw new Error('模型回應的 JSON 不完整。');
   return JSON.parse(cleaned.slice(start, end + 1));
+}
+
+function ollamaErrorDetail(rawText) {
+  const raw = String(rawText || '').trim();
+  if (!raw) return '';
+  let outer;
+  try { outer = JSON.parse(raw); }
+  catch { return raw.slice(0, 2000); }
+  let detail = outer?.error ?? outer?.message ?? raw;
+  if (typeof detail === 'string') {
+    try {
+      const nested = JSON.parse(detail);
+      detail = nested?.error?.message ?? nested?.message ?? detail;
+    } catch {}
+  } else if (detail && typeof detail === 'object') {
+    detail = detail.message ?? JSON.stringify(detail);
+  }
+  return String(detail || '').slice(0, 2000);
+}
+
+async function ollamaHttpError(response, config, label) {
+  let detail = '';
+  try {
+    detail = ollamaErrorDetail(await readResponseText(response, Math.min(config.llm.maxResponseBytes, 65536)));
+  } catch {}
+  const contextHint = /context size|exceed_context_size/iu.test(detail)
+    ? '\n請降低 llm.maxSourceChars，或提高 llm.contextWindow。'
+    : '';
+  const error = new Error(`${label}：HTTP ${response.status}${detail ? `\n${detail}` : ''}${contextHint}`);
+  error.code = 'OLLAMA_HTTP_ERROR';
+  error.status = response.status;
+  return error;
+}
+
+export function createGenerationConfig(config, resolvedModel) {
+  const generation = { ...config, llm: { ...config.llm, model: resolvedModel } };
+  if (generation.llm.provider === 'ollama') {
+    generation.llm.maxSourceChars = Math.min(generation.llm.maxSourceChars, generation.llm.contextWindow);
+  }
+  return generation;
 }
 
 async function discoverOpenAiModel(baseUrl, headers, timeoutMs, maxBytes, config) {
@@ -127,12 +173,12 @@ async function callOpenAiCompatible(messages, config) {
   return { content, model, usage: payload.usage || null };
 }
 
-async function callOllama(messages, config) {
+async function callOllama(messages, config, jsonSchema = null) {
   const baseUrl = validatedBaseUrl(config).replace(/\/v1$/u, '');
   let model = config.llm.model;
   if (model === 'auto') {
     const tags = await fetchLocalLlm(`${baseUrl}/api/tags`, { signal: AbortSignal.timeout(config.llm.timeoutMs), redirect: 'error' }, config);
-    if (!tags.ok) throw new Error(`無法讀取 Ollama 模型清單：HTTP ${tags.status}`);
+    if (!tags.ok) throw await ollamaHttpError(tags, config, '無法讀取 Ollama 模型清單');
     model = JSON.parse(await readResponseText(tags, config.llm.maxResponseBytes))?.models?.[0]?.name;
     if (!model) throw new Error('Ollama 沒有已安裝模型。');
   }
@@ -143,13 +189,16 @@ async function callOllama(messages, config) {
       model,
       messages,
       stream: false,
-      format: 'json',
-      options: { temperature: config.llm.temperature },
+      format: jsonSchema || 'json',
+      options: {
+        temperature: config.llm.temperature,
+        num_ctx: config.llm.contextWindow,
+      },
     }),
     signal: AbortSignal.timeout(config.llm.timeoutMs),
     redirect: 'error',
   }, config);
-  if (!response.ok) throw new Error(`Ollama 回應失敗：HTTP ${response.status}`);
+  if (!response.ok) throw await ollamaHttpError(response, config, 'Ollama 回應失敗');
   const payload = JSON.parse(await readResponseText(response, config.llm.maxResponseBytes));
   return { content: payload?.message?.content, model, usage: { promptEvalCount: payload.prompt_eval_count, evalCount: payload.eval_count } };
 }
@@ -168,7 +217,7 @@ export async function resolveLlmModel(config) {
     const response = await fetchLocalLlm(`${baseUrl.replace(/\/v1$/u, '')}/api/tags`, {
       signal: AbortSignal.timeout(config.llm.timeoutMs), redirect: 'error',
     }, config);
-    if (!response.ok) throw new Error(`無法讀取 Ollama 模型清單：HTTP ${response.status}`);
+    if (!response.ok) throw await ollamaHttpError(response, config, '無法讀取 Ollama 模型清單');
     const model = JSON.parse(await readResponseText(response, config.llm.maxResponseBytes))?.models?.[0]?.name;
     if (!model) throw new Error('Ollama 沒有已安裝模型。');
     return model;
@@ -178,11 +227,11 @@ export async function resolveLlmModel(config) {
   return await discoverOpenAiModel(baseUrl, headers, config.llm.timeoutMs, config.llm.maxResponseBytes, config);
 }
 
-export async function requestJson(messages, config, validate = null) {
+export async function requestJson(messages, config, validate = null, jsonSchema = null) {
   if (config.llm.provider === 'fixture') {
     if (!config.llm.fixturePlan) throw new Error('fixture provider 缺少 llm.fixturePlan。');
     const value = await readJson(config.llm.fixturePlan);
-    if (validate) validate(value);
+    if (validate) await validate(value);
     return { value, model: 'fixture', usage: null };
   }
   assertLlmPrivacy(config);
@@ -190,18 +239,17 @@ export async function requestJson(messages, config, validate = null) {
   let lastError;
   for (let attempt = 1; attempt <= 3; attempt += 1) {
     const response = config.llm.provider === 'ollama'
-      ? await callOllama(currentMessages, config)
+      ? await callOllama(currentMessages, config, jsonSchema)
       : await callOpenAiCompatible(currentMessages, config);
     try {
       const value = extractJson(response.content);
-      if (validate) validate(value);
+      if (validate) await validate(value);
       return { value, model: response.model, usage: response.usage };
     } catch (error) {
       lastError = error;
       currentMessages = [
         ...messages,
-        { role: 'assistant', content: response.content },
-        { role: 'user', content: `前一個 JSON 無法使用：${error.message}\n請只輸出修正後、完整且符合 schema 的 JSON。` },
+        { role: 'user', content: `前一個 JSON 無法使用：${error.message}\n請重新產生完整內容，只輸出符合 schema 的 JSON。` },
       ];
     }
   }

@@ -26,9 +26,9 @@
       "section": "部署",
       "title": "安裝與啟動",
       "subtitle": "兩個命令完成第一次啟動",
-      "bullets": ["執行 npm install", "執行 npm start", "看到 listening 訊息"],
+      "bullets": ["安裝相依套件", "啟動本機服務", "看到 listening 訊息"],
       "code": {"language": "powershell", "text": "npm install\nnpm start", "caption": "在專案根目錄執行"},
-      "narration": "先在專案根目錄執行 npm install 安裝相依套件，再執行 npm start。終端機顯示 listening 後，就代表服務已經可以接受請求。",
+      "narration": "先在專案根目錄依畫面指令安裝相依套件，再執行下一行指令啟動服務。終端機顯示 listening 後，就代表服務已經可以接受請求。",
       "evidence": [{"path": "README.md", "startLine": 10, "endLine": 17, "claim": "安裝與啟動命令"}]
     },
     {

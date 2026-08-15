@@ -129,8 +129,8 @@ function addCover(slide, pptx, theme, plan, item, fonts, count) {
   });
   slide.addShape(pptx.ShapeType.line, { x: 0.86, y: 4.08, w: 4.3, h: 0, line: { color: c.accentAlt, width: 2 } });
   addText(slide, plan.summary, {
-    x: 0.86, y: 4.38, w: 8.7, h: 0.78,
-    fontFace: fonts.body, fontSize: 19, color: c.text, breakLine: true,
+    x: 0.86, y: 4.32, w: 9.15, h: 1.08,
+    fontFace: fonts.body, fontSize: 18, color: c.text, breakLine: true,
   });
   addText(slide, `${count} 頁 · 逐頁旁白 · 可追溯證據`, {
     x: 0.86, y: 6.65, w: 5.4, h: 0.3,
@@ -169,8 +169,8 @@ function addSummary(slide, pptx, theme, item, fonts) {
       fontFace: fonts.code, fontSize: 28, bold: true, color: c.accent,
     });
     addText(slide, bullet, {
-      x: 1.65, y, w: 10.5, h: 0.62,
-      fontFace: fonts.body, fontSize: 21, bold: true, color: c.text, breakLine: true,
+      x: 1.65, y, w: 10.5, h: 0.74,
+      fontFace: fonts.body, fontSize: 20, bold: true, color: c.text, breakLine: true,
     });
   });
 }
@@ -217,7 +217,7 @@ export async function buildDeck(config, plan) {
         slide.addShape(pptx.ShapeType.line, { x: 0.82, y: 1.78, w: 0, h: 4.55, line: { color: theme.colors.danger, width: 4 } });
         addBulletList(slide, pptx, theme, item.bullets, { x: 1.18, y: 1.82, w: 10.7, rowH: 0.86, bodyFont: fonts.body, codeFont: fonts.code, fontSize: 21 });
       } else {
-        addBulletList(slide, pptx, theme, item.bullets, { x: 0.85, y: 1.75, w: 11.25, rowH: 0.9, bodyFont: fonts.body, codeFont: fonts.code, fontSize: item.kind === 'steps' ? 21 : 20 });
+        addBulletList(slide, pptx, theme, item.bullets, { x: 0.85, y: 1.75, w: 11.25, rowH: 0.9, bodyFont: fonts.body, codeFont: fonts.code, fontSize: item.kind === 'steps' ? 20 : 19 });
       }
     }
     const marker = crypto.randomUUID();

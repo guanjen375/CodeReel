@@ -21,7 +21,9 @@ ffprobe -version
 
 ## 2. 安裝 CodeReel
 
-在專案根目錄執行：
+以下所有 `npm` 與 `npm run codereel` 命令，都在 CodeReel 根目錄（含 `package.json` 的資料夾）執行。要轉換的來源 repo 可位於其他資料夾，不需要切換進來源 repo。
+
+在 CodeReel 根目錄執行：
 
 ```powershell
 npm ci --ignore-scripts
@@ -39,7 +41,14 @@ npm run demo
 npm run codereel -- init --repo "C:\path\to\source-repo"
 ```
 
-`--repo` 必須指向要製作教材的來源 repo。`init` 會建立完整的 `codereel.config.json`，並自動寫入來源路徑；不需要自行建立設定檔。
+`--repo` 必須指向要製作教材的來源 repo，可使用絕對或相對路徑。`init` 會在 CodeReel 根目錄建立完整的 `codereel.config.json`，並自動寫入來源路徑；不需要自行建立設定檔。
+
+例如 CodeReel 位於 `C:\Tools\CodeReel`，來源 repo 位於 `D:\Projects\MyApp`：
+
+```powershell
+PS C:\Tools\CodeReel> npm run codereel -- init --repo "D:\Projects\MyApp"
+PS C:\Tools\CodeReel> npm run codereel -- build --config .\codereel.config.json
+```
 
 若要直接分析 CodeReel 本身，也可執行：
 
@@ -78,7 +87,9 @@ ollama pull qwen3-coder:30b
   "llm": {
     "provider": "ollama",
     "baseUrl": "http://127.0.0.1:11434",
-    "model": "auto"
+    "model": "auto",
+    "contextWindow": 32768,
+    "maxSourceChars": 32000
   }
 }
 ```

@@ -6,9 +6,9 @@ import { fileURLToPath } from 'node:url';
 import { StateStore } from './state.mjs';
 import { assertRepoReadable } from './config.mjs';
 import { buildSourceBundle, fallbackSourceSelection, saveScanArtifacts, scanRepository } from './repo-scan.mjs';
-import { coursePlanMessages, sourceSelectionMessages } from './prompts.mjs';
-import { loadFixtureSelection, requestJson, resolveLlmModel } from './llm.mjs';
-import { savePlanArtifacts, validateAndEnrichEvidence, validateCoursePlanShape, validateSelection } from './plan.mjs';
+import { coursePlanJsonSchema, coursePlanMessages, sourceSelectionJsonSchema, sourceSelectionMessages } from './prompts.mjs';
+import { createGenerationConfig, loadFixtureSelection, requestJson, resolveLlmModel } from './llm.mjs';
+import { normalizeCoursePlanCommandPlacement, savePlanArtifacts, validateAndEnrichEvidence, validateCoursePlanShape, validateSelection } from './plan.mjs';
 import { buildDeck } from './deck.mjs';
 import { prepareNarration } from './narration.mjs';
 import { renderDeck } from './render.mjs';
@@ -259,7 +259,7 @@ async function runPipelineUnlocked(config, options = {}) {
   const fixturePlanHash = config.llm.provider === 'fixture' ? await sha256File(config.llm.fixturePlan) : null;
   const generationConfig = config.llm.provider === 'fixture'
     ? config
-    : { ...config, llm: { ...config.llm, model: resolvedModel } };
+    : createGenerationConfig(config, resolvedModel);
   const contentPreflight = {
     ttsProvider: config.tts.provider,
     estimatedCharactersPerMinute: config.tts.estimatedCharactersPerMinute,
@@ -277,17 +277,31 @@ async function runPipelineUnlocked(config, options = {}) {
         selectedPaths = await loadFixtureSelection(config, manifest);
       } else {
         try {
-          const selection = await requestJson(sourceSelectionMessages(manifest, generationConfig), generationConfig, (value) => validateSelection(value, manifest, config.llm.maxSelectedFiles));
+          const selection = await requestJson(
+            sourceSelectionMessages(manifest, generationConfig),
+            generationConfig,
+            (value) => validateSelection(value, manifest, config.llm.maxSelectedFiles),
+            sourceSelectionJsonSchema(config.llm.maxSelectedFiles),
+          );
           selectedPaths = selection.value.selectedPaths.map((item) => String(item).replaceAll('\\', '/'));
         } catch (error) {
           console.warn(`! LLM 檔案選擇失敗，改用確定性排序：${error.message}`);
           selectedPaths = fallbackSourceSelection(manifest, config.llm.maxSelectedFiles);
         }
       }
-      const bundle = await buildSourceBundle(config, manifest, selectedPaths);
+      const bundle = await buildSourceBundle(generationConfig, manifest, selectedPaths);
       await writeTextAtomic(config.paths.sourceBundle, bundle.text);
-      const response = await requestJson(coursePlanMessages({ manifest, bundle, config: generationConfig }), generationConfig, (value) => validateCoursePlanShape(value, config));
-      const enriched = await validateAndEnrichEvidence(response.value, config, manifest);
+      let enriched;
+      const response = await requestJson(
+        coursePlanMessages({ manifest, bundle, config: generationConfig }),
+        generationConfig,
+        async (value) => {
+          const normalized = normalizeCoursePlanCommandPlacement(value, config);
+          validateCoursePlanShape(normalized, config);
+          enriched = await validateAndEnrichEvidence(normalized, config, manifest);
+        },
+        coursePlanJsonSchema(config, bundle.used.map((item) => item.path)),
+      );
       enriched.plan.generation = { llmProvider: config.llm.provider, resolvedModel: response.model || resolvedModel, pipelineRevision: PIPELINE_REVISION };
       await savePlanArtifacts(config, enriched);
       return enriched.plan;

@@ -15,9 +15,10 @@
     "model": "auto",
     "apiKeyEnv": "",
     "temperature": 0.2,
-    "timeoutMs": 180000,
+    "timeoutMs": 600000,
+    "contextWindow": 32768,
     "maxResponseBytes": 4194304,
-    "maxSourceChars": 180000,
+    "maxSourceChars": 32000,
     "maxSelectedFiles": 28
   },
   "slides": {

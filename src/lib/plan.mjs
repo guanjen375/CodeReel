@@ -9,11 +9,46 @@ const dangerousCommandPatterns = [
   /\b(?:Invoke-Expression|iex|powershell|pwsh)\b[^\r\n]*(?:-enc(?:odedcommand)?|-ExecutionPolicy\s+Bypass)/iu,
   /\b(?:cat|type|Get-Content)\b[^\r\n]*(?:\.env|id_rsa|credentials|service-account|\/etc\/(?:passwd|shadow))/iu,
 ];
-const unstructuredCommandPattern = /(?:^|\s)(?:curl|wget|Invoke-WebRequest|Remove-Item|rm|del|sudo|powershell|pwsh|cmd|bash|sh)\b[^\r\n]*(?:--?[\w-]+|https?:\/\/|\||&&|;|>)/iu;
+const unstructuredCommandPatterns = [
+  /(?:^|\s)(?:npm|pnpm|yarn)\s+(?:ci|install|run|exec|test|build|start)\b/iu,
+  /(?:^|\s)node\s+(?:--?[\w-]+|\.?[\\/]|[\w.-]+\.(?:[cm]?js|ts))\b/iu,
+  /(?:^|\s)git\s+(?:clone|checkout|switch|pull|push|fetch|merge|rebase|status|log|diff|add|commit)\b/iu,
+  /(?:^|\s)ollama\s+(?:pull|run|serve|list|show|ps|rm)\b/iu,
+  /(?:^|\s)winget\s+install\b/iu,
+  /(?:^|\s)(?:ffmpeg|ffprobe)\s+-[\w-]+\b/iu,
+  /(?:^|\s)(?:powershell|pwsh)\s+-[\w-]+\b/iu,
+  /(?:^|\s)cmd\s+\/[ck]\b/iu,
+  /(?:^|\s)(?:bash|sh)\s+(?:-[a-z]+\b|\.?[\\/][^\s]+)/iu,
+  /(?:^|\s)(?:curl|wget|Invoke-WebRequest|Remove-Item|rm|del|sudo)\b\s+(?:--?[\w-]+|https?:\/\/|[^\s]+(?:\||&&|;|>))/iu,
+];
+const promotableCommandPatterns = [
+  /\b(?:npm|pnpm|yarn)\s+(?:ci|install|run|exec|test|build|start)(?:\s+(?:--?[A-Za-z0-9][\w-]*(?:=[^\s，。；]+)?|[A-Za-z0-9@._:/\\-]+)){0,8}/giu,
+  /\bollama\s+(?:pull|run|serve|list|show|ps)(?:\s+[A-Za-z0-9@._:/-]+){0,3}/giu,
+  /\bwinget\s+install(?:\s+(?:--?[A-Za-z0-9][\w-]*(?:=[^\s，。；]+)?|[A-Za-z0-9@._:/\\-]+)){0,12}/giu,
+  /\b(?:node|ffmpeg|ffprobe)\s+--?[A-Za-z0-9][\w-]*/giu,
+  /\bgit\s+(?:clone|checkout|switch|pull|fetch|status|log|diff)(?:\s+(?:--?[A-Za-z0-9][\w-]*|[A-Za-z0-9@._:/\\-]+)){0,8}/giu,
+];
 const commonSimplifiedCharacters = /[这为发应现进过还从将与会学术体务网数线码档处实认验启]/u;
+const audienceReferencePattern = /適用對象|使用者|讀者|觀眾|客戶|初學者|新手|學習者|剛接觸(?:專案)?者/iu;
 
 function assertTraditionalProse(value, location) {
   if (commonSimplifiedCharacters.test(String(value || ''))) throw new Error(`${location} 偵測到常見簡體字；請改為繁體中文。`);
+}
+
+function neutralizeAudienceReferences(value) {
+  if (typeof value !== 'string') return value;
+  return value
+    .replace(/本課程專為/gu, '本課程用於')
+    .replace(/(?:，|。)?(?:適用於|適合)(?:任何)?[^，。]*(?:使用者|讀者|觀眾|客戶|初學者|新手|學習者|剛接觸(?:專案)?者)[，。]?/giu, '。')
+    .replace(/(?:使用者|讀者|觀眾|客戶|初學者|新手|學習者|剛接觸(?:專案)?者)/giu, '')
+    .replace(/。{2,}/gu, '。')
+    .trim();
+}
+
+function truncateDisplayText(value, maxCharacters) {
+  const characters = [...String(value || '').trim()];
+  if (characters.length <= maxCharacters) return characters.join('');
+  return `${characters.slice(0, maxCharacters - 1).join('').replace(/[，、；：\s]+$/u, '')}。`;
 }
 
 export function validateSelection(value, manifest, maxFiles) {
@@ -25,6 +60,76 @@ export function validateSelection(value, manifest, maxFiles) {
   for (const selected of value.selectedPaths) {
     if (!known.has(normalizeSlashes(selected))) throw new Error(`模型選了不存在的檔案：${selected}`);
   }
+}
+
+export function normalizeCoursePlanCommandPlacement(plan, config = null) {
+  if (!plan || !Array.isArray(plan.slides)) return plan;
+  const slides = plan.slides.map((slide) => {
+      let code = slide.code;
+      if (['steps', 'code'].includes(slide.kind) && !String(code?.text || '').trim()) {
+        const prose = [slide.title, slide.subtitle, ...(slide.bullets || []), slide.narration].filter(Boolean).join('\n');
+        const commands = [];
+        for (const pattern of promotableCommandPatterns) {
+          for (const match of prose.matchAll(pattern)) {
+            const command = match[0].trim();
+            if (!commands.includes(command)) commands.push(command);
+          }
+        }
+        if (commands.length > 0) {
+          code = { language: 'powershell', text: commands.join('\n'), caption: '依來源文件在專案根目錄執行' };
+        }
+      }
+      const codeLines = String(code?.text || '')
+        .split(/\r?\n/u)
+        .map((line) => line.trim())
+        .filter((line) => line.length >= 3)
+        .sort((left, right) => right.length - left.length);
+      const replaceCodeEcho = (value) => {
+        if (typeof value !== 'string') return value;
+        let result = value;
+        for (const line of codeLines) result = result.replaceAll(line, '畫面中的指令');
+        return result;
+      };
+      const bullets = Array.isArray(slide.bullets)
+        ? slide.bullets.filter((bullet) => !audienceReferencePattern.test(String(bullet))).map(neutralizeAudienceReferences)
+        : slide.bullets;
+      return {
+        ...slide,
+        code,
+        title: neutralizeAudienceReferences(replaceCodeEcho(slide.title)),
+        subtitle: neutralizeAudienceReferences(replaceCodeEcho(slide.subtitle)),
+        bullets: Array.isArray(bullets) ? bullets.map(replaceCodeEcho) : bullets,
+        narration: neutralizeAudienceReferences(replaceCodeEcho(slide.narration)),
+      };
+    });
+  if (!slides.some((slide) => slide.kind === 'agenda')) {
+    const topics = [];
+    for (const slide of slides) {
+      if (['cover', 'summary'].includes(slide.kind)) continue;
+      const topic = String(slide.section || slide.title || '').trim();
+      if (topic && !topics.includes(topic)) topics.push(topic);
+      if (topics.length === 5) break;
+    }
+    while (topics.length < 2) topics.push(topics.length === 0 ? '環境與設定' : '建置與驗收');
+    const evidence = slides.find((slide) => Array.isArray(slide.evidence) && slide.evidence.length > 0)?.evidence || [];
+    const agenda = {
+      kind: 'agenda',
+      section: '課程導覽',
+      title: '課程流程',
+      subtitle: '依序完成設定、建置與驗收',
+      bullets: topics,
+      narration: `本課程依序包含${topics.join('、')}。每個階段都會對照來源內容、實際操作位置與成功判斷，最後完成投影片輸出，並準備後續影片製作所需的講稿與素材。`,
+      evidence,
+    };
+    const maxSlides = Number(config?.project?.maxSlides) || Number.POSITIVE_INFINITY;
+    if (slides.length < maxSlides) slides.splice(slides[0]?.kind === 'cover' ? 1 : 0, 0, agenda);
+    else slides[slides[0]?.kind === 'cover' ? 1 : 0] = agenda;
+  }
+  return {
+    ...plan,
+    summary: truncateDisplayText(neutralizeAudienceReferences(plan.summary), 90),
+    slides,
+  };
 }
 
 export function validateCoursePlanShape(plan, config) {
@@ -57,7 +162,9 @@ export function validateCoursePlanShape(plan, config) {
     }
     const minimumBullets = ['agenda', 'steps', 'summary'].includes(slide.kind) ? 2 : (['concept', 'warning', 'code'].includes(slide.kind) ? 1 : 0);
     if (slide.bullets.length < minimumBullets) throw new Error(`第 ${index + 1} 頁 ${slide.kind} 至少需要 ${minimumBullets} 個重點。`);
-    if (slide.kind === 'code' && !String(slide.code?.text || '').trim()) throw new Error(`第 ${index + 1} 頁 code kind 缺少 code.text。`);
+    if (slide.kind === 'code' && !String(slide.code?.text || '').trim()) {
+      throw new Error(`第 ${index + 1} 頁 code 必須把精確操作放在 code.text。`);
+    }
     if (!Array.isArray(slide.evidence) || slide.evidence.length === 0 || slide.evidence.length > 10) throw new Error(`第 ${index + 1} 頁 evidence 必須介於 1–10 筆。`);
     for (const value of [slide.section, slide.title, slide.subtitle, ...(slide.bullets || []), slide.narration]) {
       assertTraditionalProse(value, `第 ${index + 1} 頁`);
@@ -70,7 +177,7 @@ export function validateCoursePlanShape(plan, config) {
       if (combined.includes(phrase)) throw new Error(`第 ${index + 1} 頁包含幕後禁詞：「${phrase}」。`);
     }
     const outsideCode = [slide.title, slide.subtitle || '', ...(slide.bullets || []), slide.narration].join('\n');
-    if (unstructuredCommandPattern.test(outsideCode)) {
+    if (unstructuredCommandPatterns.some((pattern) => pattern.test(outsideCode))) {
       throw new Error(`第 ${index + 1} 頁在 code 欄位外包含完整命令；請只保留目的與判斷，精確命令放入 code.text。`);
     }
     const allContent = `${outsideCode}\n${slide.code?.text || ''}`;
@@ -139,7 +246,11 @@ export async function validateAndEnrichEvidence(plan, config, manifest) {
       const evidenceText = evidenceItems
         .filter((entry) => enriched.some((reference) => reference.id === entry.id))
         .map((entry) => entry.excerpt.replace(/\r\n/gu, '\n'));
-      if (!evidenceText.some((excerpt) => excerpt.includes(code))) {
+      const shellLike = /^(?:bash|sh|shell|powershell|cmd|batch)$/iu.test(String(slide.code.language || ''));
+      const codeIsGrounded = shellLike
+        ? code.split('\n').map((line) => line.trim()).filter(Boolean).every((line) => evidenceText.some((excerpt) => excerpt.includes(line)))
+        : evidenceText.some((excerpt) => excerpt.includes(code));
+      if (!codeIsGrounded) {
         throw new Error(`第 ${index + 1} 頁的 code／命令不是證據範圍中的逐字內容。`);
       }
     }

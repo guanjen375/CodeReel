@@ -23,6 +23,89 @@ export function sourceSelectionMessages(manifest, config) {
   ];
 }
 
+export function sourceSelectionJsonSchema(maxFiles) {
+  return {
+    type: 'object',
+    additionalProperties: false,
+    required: ['selectedPaths', 'reason'],
+    properties: {
+      selectedPaths: {
+        type: 'array',
+        minItems: 1,
+        maxItems: maxFiles,
+        uniqueItems: true,
+        items: { type: 'string', minLength: 1 },
+      },
+      reason: { type: 'string', minLength: 1, maxLength: 240 },
+    },
+  };
+}
+
+export function coursePlanJsonSchema(config, evidencePaths = []) {
+  const evidencePath = evidencePaths.length > 0
+    ? { type: 'string', enum: [...new Set(evidencePaths)] }
+    : { type: 'string', minLength: 1 };
+  return {
+    type: 'object',
+    additionalProperties: false,
+    required: ['projectTitle', 'courseTitle', 'summary', 'slides'],
+    properties: {
+      projectTitle: { type: 'string', minLength: 1, maxLength: 80 },
+      courseTitle: { type: 'string', minLength: 1, maxLength: 120 },
+      summary: { type: 'string', minLength: 1, maxLength: 240 },
+      slides: {
+        type: 'array',
+        minItems: config.project.minSlides,
+        maxItems: config.project.maxSlides,
+        items: {
+          type: 'object',
+          additionalProperties: false,
+          required: ['kind', 'section', 'title', 'subtitle', 'bullets', 'narration', 'evidence'],
+          properties: {
+            kind: { type: 'string', enum: ['cover', 'agenda', 'concept', 'steps', 'code', 'warning', 'summary'] },
+            section: { type: 'string', minLength: 1, maxLength: 80 },
+            title: { type: 'string', minLength: 1, maxLength: 80 },
+            subtitle: { type: 'string', maxLength: 120 },
+            bullets: {
+              type: 'array',
+              minItems: 0,
+              maxItems: 5,
+              items: { type: 'string', minLength: 1, maxLength: 100 },
+            },
+            code: {
+              type: 'object',
+              additionalProperties: false,
+              required: ['language', 'text', 'caption'],
+              properties: {
+                language: { type: 'string', minLength: 1, maxLength: 40 },
+                text: { type: 'string', minLength: 1, maxLength: 4000 },
+                caption: { type: 'string', maxLength: 160 },
+              },
+            },
+            narration: { type: 'string', minLength: 40, maxLength: 260 },
+            evidence: {
+              type: 'array',
+              minItems: 1,
+              maxItems: 10,
+              items: {
+                type: 'object',
+                additionalProperties: false,
+                required: ['path', 'startLine', 'endLine', 'claim'],
+                properties: {
+                  path: evidencePath,
+                  startLine: { type: 'integer', minimum: 1 },
+                  endLine: { type: 'integer', minimum: 1 },
+                  claim: { type: 'string', minLength: 1, maxLength: 240 },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+  };
+}
+
 export function coursePlanMessages({ manifest, bundle, config }) {
   const commit = manifest.git.commit || 'NO_COMMIT';
   const slideMin = config.project.minSlides;
@@ -39,6 +122,7 @@ export function coursePlanMessages({ manifest, bundle, config }) {
         '成品直接說明目標與操作，不描述讀者、觀眾、使用者或其他身分標籤。',
         '畫面保留精確命令；旁白說明目的與判斷，不逐字念標點。',
         '精確命令只能放在 code.text；title、subtitle、bullets 與 narration 不得放完整 shell／PowerShell 命令。',
+        'kind 為 code，或 steps 頁包含精確命令時，code 物件與 code.text 必須存在；一般文字只說明目的、位置與成功判斷。',
         '不得輸出下載後直接執行、遞迴刪除、提權、停用安全功能或讀取憑證的命令。',
         '不得出現「建議講者」「講者可以」「本頁只抓」「剛接觸專案者應該」「這張投影片要」等製作幕後語句。',
         '每個技術敘述都必須引用 repo 內的 path 與行號。沒有證據就刪除或明確寫成未知。',
@@ -71,7 +155,7 @@ export function coursePlanMessages({ manifest, bundle, config }) {
           }],
         }),
         '',
-        '額外規則：封面保持簡潔；code 欄位不適用時省略。程式碼與命令必須逐字取自證據，不得自行改寫。',
+        '額外規則：封面保持簡潔；code 頁及含命令的 steps 頁必須提供 code，其餘不適用時可省略。程式碼與命令必須逐字取自證據，不得自行改寫。',
         '',
         '===== REPO EVIDENCE START =====',
         bundle.text,
