@@ -27,13 +27,27 @@ ffprobe -version
 npm ci --ignore-scripts
 ```
 
+先用內附示例確認完整管線可執行；這個命令不呼叫本機 LLM 或付費語音：
+
+```powershell
+npm run demo
+```
+
 ## 3. 建立設定檔
 
 ```powershell
 npm run codereel -- init --repo "C:\path\to\source-repo"
 ```
 
-`init` 會建立完整的 `codereel.config.json`，並自動寫入來源 repo 路徑；不需要自行建立設定檔。
+`--repo` 必須指向要製作教材的來源 repo。`init` 會建立完整的 `codereel.config.json`，並自動寫入來源路徑；不需要自行建立設定檔。
+
+若要直接分析 CodeReel 本身，也可執行：
+
+```powershell
+npm run codereel -- init --repo "."
+```
+
+這種情況會自動把輸出移到來源 repo 外，避免掃描或覆寫產物。
 
 ## 4. 設定本機模型
 

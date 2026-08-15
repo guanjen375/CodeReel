@@ -3,6 +3,7 @@ import path from 'node:path';
 import { isPathInside, pathExists, readJson, safeName, sha256, writeJsonAtomic } from './utils.mjs';
 
 const defaults = {
+  outputRoot: './output',
   project: {
     title: '',
     targetMinutes: 15,
@@ -42,9 +43,25 @@ const defaults = {
     azureKeyEnv: 'AZURE_SPEECH_KEY',
     azureRegionEnv: 'AZURE_SPEECH_REGION',
     azureEndpointEnv: 'AZURE_SPEECH_ENDPOINT',
+    ratePerMillionCharacters: null,
+    pricingCurrency: null,
+    pricingSnapshotDate: null,
+    licenseRecord: '',
     piperExecutable: 'piper',
     piperModel: '',
-    pronunciation: { spellAcronyms: true, underscoresAsPause: true, replacements: [] },
+    pronunciation: {
+      spellAcronyms: true,
+      underscoresAsPause: true,
+      replacements: [
+        { from: 'aicode', to: 'A I code' },
+        { from: 'CodeReel', to: 'Code Reel' },
+        { from: 'README', to: 'read me' },
+        { from: 'RAG', to: 'R A G' },
+        { from: 'LLM', to: 'L L M' },
+        { from: 'API', to: 'A P I' },
+        { from: 'CLI', to: 'C L I' },
+      ],
+    },
   },
   video: {
     fps: 30,
@@ -103,7 +120,7 @@ export async function loadConfig(configPath) {
   const absoluteConfigPath = path.resolve(configPath);
   const configDir = path.dirname(absoluteConfigPath);
   if (!await pathExists(absoluteConfigPath)) {
-    throw new Error(`找不到設定檔：${absoluteConfigPath}\n請先複製 codereel.config.example.json。`);
+    throw new Error(`找不到設定檔：${absoluteConfigPath}\n請先執行 codereel init --repo <來源 repo 路徑>。`);
   }
   const raw = mergeDeep(defaults, await readJson(absoluteConfigPath));
   if (!raw.repoPath) throw new Error('設定缺少 repoPath。');
@@ -217,10 +234,21 @@ function createPaths(runRoot, projectId) {
 export async function initializeConfig({ sourceTemplate, destination, repoPath }) {
   const target = path.resolve(destination || 'codereel.config.json');
   if (await pathExists(target)) throw new Error(`不覆寫既有設定檔：${target}`);
-  const config = await readJson(sourceTemplate);
-  if (repoPath) config.repoPath = path.resolve(repoPath);
+  if (!repoPath || repoPath === true) throw new Error('init 必須提供 --repo <來源 repo 路徑>。');
+  const resolvedRepoPath = path.resolve(String(repoPath));
+  const repoStat = await fs.stat(resolvedRepoPath).catch(() => null);
+  if (!repoStat?.isDirectory()) throw new Error(`--repo 不是可讀取的資料夾：${resolvedRepoPath}`);
+  const template = sourceTemplate && await pathExists(sourceTemplate) ? await readJson(sourceTemplate) : {};
+  const config = mergeDeep(defaults, template);
+  config.repoPath = resolvedRepoPath;
   if (config.slides?.themeFile && !path.isAbsolute(config.slides.themeFile)) {
-    config.slides.themeFile = path.resolve(path.dirname(path.resolve(sourceTemplate)), config.slides.themeFile);
+    const templateDirectory = sourceTemplate ? path.dirname(path.resolve(sourceTemplate)) : process.cwd();
+    config.slides.themeFile = path.resolve(templateDirectory, config.slides.themeFile);
+  }
+  const configDirectory = path.dirname(target);
+  const resolvedOutputRoot = path.resolve(configDirectory, config.outputRoot || './output');
+  if (isPathInside(resolvedRepoPath, resolvedOutputRoot) || isPathInside(resolvedOutputRoot, resolvedRepoPath)) {
+    config.outputRoot = path.join(path.dirname(resolvedRepoPath), `${safeName(path.basename(resolvedRepoPath), 'repository')}-codereel-output`);
   }
   await writeJsonAtomic(target, config);
   return target;
