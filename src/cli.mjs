@@ -4,7 +4,7 @@ import readline from 'node:readline/promises';
 import { fileURLToPath } from 'node:url';
 import { initializeConfig, loadConfig, resolveConfigPath, setActiveConfig } from './lib/config.mjs';
 import { runDoctor } from './lib/doctor.mjs';
-import { claudeModelCandidates } from './lib/llm.mjs';
+import { detectClaudeModels } from './lib/llm.mjs';
 import { readPipelineStatus, runPipeline, withPipelineLock } from './lib/pipeline.mjs';
 import { parseCliArgs, readJson, writeJsonAtomic } from './lib/utils.mjs';
 import { runQa } from './lib/qa.mjs';
@@ -43,13 +43,15 @@ async function chooseModel(config, configPath) {
     return await applyModel(configPath, String(args.model).trim(), config.llm.model);
   }
   if (!interactive()) return null;
-  const candidates = claudeModelCandidates(config);
+  console.log('\n正在偵測可用的模型…');
+  const choices = [...await detectClaudeModels(config), 'auto'];
   console.log('\n分析與課程規劃要用哪個模型？');
-  candidates.forEach((value, index) => {
-    console.log(`  ${index + 1}) ${value}${value === config.llm.model ? '（目前）' : ''}`);
+  choices.forEach((value, index) => {
+    const label = value === 'auto' ? 'auto（跟隨 Claude Code 目前設定）' : value;
+    console.log(`  ${index + 1}) ${label}${value === config.llm.model ? '（目前）' : ''}`);
   });
   const answer = await ask(`\n輸入編號（直接按 Enter 沿用 ${config.llm.model}）：`);
-  const picked = candidates[Number(answer) - 1];
+  const picked = choices[Number(answer) - 1];
   if (!picked) return null;
   return await applyModel(configPath, picked, config.llm.model);
 }
@@ -88,7 +90,7 @@ function help() {
   run      再建立逐頁音訊、SRT、章節與 MP4
 
 省略 --config 時，使用最近一次 init 選定的設定檔。
-init 會列出模型讓你挑；analyze／build／run 會先確認課程目的。
+init 會偵測可用模型讓你挑；analyze／build／run 會先確認課程目的。
 加上 --no-prompt 可跳過所有互動詢問，直接沿用設定檔的值。
 Azure 正式配音只有在未命中快取且傳入與外送預覽完全相符的 --approve-tts digest 時才會呼叫。`);
 }

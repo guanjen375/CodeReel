@@ -75,24 +75,25 @@ npm run codereel -- init --repo "C:\path\to\source-repo"
 
 `--repo` 必須指向要製作教材的來源 repo，可使用絕對或相對路徑。命令仍然在 CodeReel 根目錄執行，不需要切換進來源 repo。例如 CodeReel 位於 `C:\Tools\CodeReel`、來源 repo 位於 `D:\Projects\MyApp`：
 
-`init` 會列出模型讓你挑：
+`init` 會偵測你的帳號實際能用哪些模型，再列出來讓你挑：
 
 ```powershell
 PS C:\Tools\CodeReel> npm run codereel -- init --repo "D:\Projects\MyApp"
 已建立設定檔：C:\Tools\CodeReel\codereel.config.json
 已設為目前專案。
 
+正在偵測可用的模型…
+
 分析與課程規劃要用哪個模型？
-  1) auto（目前）
-  2) fable
-  3) opus
-  4) sonnet
-  5) haiku
+  1) <偵測到的模型>
+  2) <偵測到的模型>
+  ...
+  n) auto（跟隨 Claude Code 目前設定）（目前）
 
 輸入編號（直接按 Enter 沿用 auto）：
 ```
 
-`auto` 表示跟著 Claude Code 目前的設定走，每次 `build` 可能換到不同模型；固定一個名稱可以讓產出穩定。清單內容可用設定檔的 `llm.modelCandidates` 自行增減。
+清單以實際偵測結果為準，會隨模型更新自動變動；`auto` 不是模型，因此固定放在最後一項。選 `auto` 時每次 `build` 可能換到不同模型，固定一個名稱可以讓產出穩定。要加測其他名稱可在設定檔的 `llm.modelCandidates` 補上。
 
 要跳過詢問時用 `--model`：
 

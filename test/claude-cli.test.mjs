@@ -7,8 +7,8 @@ import { fileURLToPath } from 'node:url';
 import { initializeConfig, loadConfig } from '../src/lib/config.mjs';
 import {
   assertLlmPrivacy, claudeCliArgs, claudeCliContent, claudeCliModel, claudeCliPrompt,
-  claudeModelCandidates, claudeModelChoices, claudeShimTargets, llmSetupInstructions,
-  parseClaudeCliEnvelope, resolveLlmModel,
+  claudeCachedModelNames, claudeModelCandidates, claudeModelChoices, claudeShimTargets,
+  llmSetupInstructions, parseClaudeCliEnvelope, resolveLlmModel,
 } from '../src/lib/llm.mjs';
 import { readJson, writeJsonAtomic } from '../src/lib/utils.mjs';
 
@@ -163,6 +163,26 @@ test('候選模型清單可由設定檔增減，不必等程式更新', () => {
     claudeModelCandidates(claudeConfig({ modelCandidates: ['opus', ' 未來模型 ', '', null] })),
     ['opus', '未來模型'],
   );
+});
+
+test('auto 不是模型，不會混進待偵測的清單', () => {
+  assert.ok(!claudeModelChoices.includes('auto'));
+  assert.ok(!claudeModelCandidates(claudeConfig({ modelCandidates: ['auto', 'opus'] })).includes('auto'));
+  assert.ok(!claudeModelCandidates(claudeConfig(), ['auto']).includes('auto'));
+});
+
+test('Claude Code 已知的模型會併入待偵測清單且不重複', () => {
+  assert.deepEqual(
+    claudeModelCandidates(claudeConfig({ modelCandidates: ['opus'] }), ['claude-fable-5[1m]', 'opus']),
+    ['opus', 'claude-fable-5[1m]'],
+  );
+});
+
+test('讀不到 Claude Code 的模型快取時安靜跳過', () => {
+  assert.deepEqual(claudeCachedModelNames({ additionalModelOptionsCache: [{ value: 'claude-fable-5[1m]', label: 'Fable' }] }), ['claude-fable-5[1m]']);
+  assert.deepEqual(claudeCachedModelNames({ additionalModelOptionsCache: [{ label: '沒有 value' }, { value: '  ' }] }), []);
+  assert.deepEqual(claudeCachedModelNames({}), []);
+  assert.deepEqual(claudeCachedModelNames(null), []);
 });
 
 test('Windows 批次檔 shim 會解析回真正的執行檔', () => {

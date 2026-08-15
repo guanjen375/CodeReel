@@ -394,7 +394,26 @@ async function claudeCliAuthStatus(executable) {
   }
 }
 
-export const claudeModelChoices = ['auto', 'fable', 'opus', 'sonnet', 'haiku'];
+export const claudeModelChoices = ['fable', 'opus', 'sonnet', 'haiku'];
+
+function claudeConfigFile() {
+  const directory = process.env.CLAUDE_CONFIG_DIR || os.homedir();
+  return path.join(directory, '.claude.json');
+}
+
+export function claudeCachedModelNames(stored) {
+  const options = stored?.additionalModelOptionsCache;
+  if (!Array.isArray(options)) return [];
+  return options.map((item) => String(item?.value ?? '').trim()).filter(Boolean);
+}
+
+async function claudeDiscoveredModels() {
+  try {
+    return claudeCachedModelNames(JSON.parse(stripBom(await fs.readFile(claudeConfigFile(), 'utf8'))));
+  } catch {
+    return [];
+  }
+}
 
 async function claudeProbe(config, model) {
   const probeConfig = {
@@ -407,11 +426,23 @@ async function claudeProbe(config, model) {
   ], probeConfig);
 }
 
-export function claudeModelCandidates(config) {
-  const configured = config?.llm?.modelCandidates;
-  if (!Array.isArray(configured)) return claudeModelChoices;
-  const values = configured.map((item) => String(item ?? '').trim()).filter(Boolean);
-  return values.length > 0 ? values : claudeModelChoices;
+export function claudeModelCandidates(config, discovered = []) {
+  const configured = (config?.llm?.modelCandidates ?? []).map((item) => String(item ?? '').trim()).filter(Boolean);
+  const base = configured.length > 0 ? configured : claudeModelChoices;
+  return [...new Set([...base, ...discovered])].filter((value) => value !== 'auto');
+}
+
+export async function detectClaudeModels(config) {
+  const candidates = claudeModelCandidates(config, await claudeDiscoveredModels());
+  const probed = await Promise.all(candidates.map(async (value) => {
+    try {
+      await claudeProbe(config, value);
+      return value;
+    } catch {
+      return null;
+    }
+  }));
+  return probed.filter(Boolean);
 }
 
 export async function checkClaudeCli(config) {
