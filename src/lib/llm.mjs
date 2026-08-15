@@ -394,21 +394,7 @@ async function claudeCliAuthStatus(executable) {
   }
 }
 
-export const claudeModelChoices = [
-  { value: 'auto', summary: '跟隨 Claude Code 目前設定；模型可能隨時改變' },
-  { value: 'opus', summary: '分析最完整，適合正式教材' },
-  { value: 'sonnet', summary: '品質與速度平衡' },
-  { value: 'haiku', summary: '最快，適合先跑通整條流程' },
-  { value: 'fable', summary: '較新的模型，可用性依帳號而定' },
-];
-
-export function modelMatchesRequest(requested, resolved) {
-  if (!requested || requested === 'auto') return true;
-  const wanted = String(requested).toLowerCase().replace(/\[[^\]]*\]/gu, '');
-  const actual = String(resolved || '').toLowerCase();
-  const family = wanted.replace(/^claude-/u, '').split('-')[0];
-  return Boolean(family) && actual.includes(family);
-}
+export const claudeModelChoices = ['auto', 'fable', 'opus', 'sonnet', 'haiku'];
 
 async function claudeProbe(config, model) {
   const probeConfig = {
@@ -423,25 +409,9 @@ async function claudeProbe(config, model) {
 
 export function claudeModelCandidates(config) {
   const configured = config?.llm?.modelCandidates;
-  if (!Array.isArray(configured) || configured.length === 0) return claudeModelChoices;
-  return configured
-    .map((item) => (typeof item === 'string' ? { value: item, summary: '' } : item))
-    .filter((item) => item?.value)
-    .map((item) => ({ value: String(item.value), summary: String(item.summary || '') }));
-}
-
-export async function probeClaudeModels(config, choices = claudeModelCandidates(config)) {
-  return await Promise.all(choices.map(async (choice) => {
-    try {
-      const probe = await claudeProbe(config, choice.value);
-      return {
-        ...choice, available: true, resolvedModel: probe.model,
-        matchesRequest: modelMatchesRequest(choice.value, probe.model),
-      };
-    } catch (error) {
-      return { ...choice, available: false, error: error.message };
-    }
-  }));
+  if (!Array.isArray(configured)) return claudeModelChoices;
+  const values = configured.map((item) => String(item ?? '').trim()).filter(Boolean);
+  return values.length > 0 ? values : claudeModelChoices;
 }
 
 export async function checkClaudeCli(config) {

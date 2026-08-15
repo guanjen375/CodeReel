@@ -75,45 +75,29 @@ npm run codereel -- init --repo "C:\path\to\source-repo"
 
 `--repo` 必須指向要製作教材的來源 repo，可使用絕對或相對路徑。命令仍然在 CodeReel 根目錄執行，不需要切換進來源 repo。例如 CodeReel 位於 `C:\Tools\CodeReel`、來源 repo 位於 `D:\Projects\MyApp`：
 
-`init` 會先實際測試你的帳號能用哪些模型，再讓你挑：
+`init` 會列出模型讓你挑：
 
 ```powershell
 PS C:\Tools\CodeReel> npm run codereel -- init --repo "D:\Projects\MyApp"
 已建立設定檔：C:\Tools\CodeReel\codereel.config.json
 已設為目前專案。
 
-正在確認這個帳號可以使用哪些模型…
-
-分析與課程規劃要用哪個模型？箭頭右邊是這個帳號實際會跑到的模型。
-  1) auto    → <實測結果>   跟隨 Claude Code 目前設定；模型可能隨時改變（目前）
-  2) opus    → <實測結果>   分析最完整，適合正式教材
-  3) sonnet  → <實測結果>   品質與速度平衡
-  4) haiku   → <實測結果>   最快，適合先跑通整條流程
-  ...
+分析與課程規劃要用哪個模型？
+  1) auto（目前）
+  2) fable
+  3) opus
+  4) sonnet
+  5) haiku
 
 輸入編號（直接按 Enter 沿用 auto）：
 ```
 
-左邊是你填進設定檔的名稱，右邊是 CodeReel **當場實測**問出來的結果 —— 每次執行 `init` 都會重新測一次。模型改版、你的方案變更、或 Anthropic 推出新模型時，這份清單都會自己跟著變，所以這份文件不列出具體的模型代號，一切以你實際跑出來的為準。有幾列、列出哪些名稱，也依 `llm.modelCandidates` 而定。
+`auto` 表示跟著 Claude Code 目前的設定走，每次 `build` 可能換到不同模型；固定一個名稱可以讓產出穩定。清單內容可用設定檔的 `llm.modelCandidates` 自行增減。
 
-會需要實測是因為：**指定的模型如果你的帳號不能用，Claude Code 不會報錯，而是安靜地改跑另一個模型。**你以為在用 A，實際跑的是 B。CodeReel 會比對「你選的」和「實際跑到的」是不是同一個系列，對不上就在該列標示出來，你才不會挑到一個名不副實的選項。
-
-正式產出教材建議選 `opus` 這類明確的名稱：`auto` 會跟著 Claude Code 當下的設定走，每次 `build` 可能換到不同模型，而課程計畫的快取判斷看不出這種變化。
-
-要跳過詢問時用 `--model`，適合腳本或重跑：
+要跳過詢問時用 `--model`：
 
 ```powershell
 npm run codereel -- init --repo "D:\Projects\MyApp" --model opus
-```
-
-清單要測哪些名稱可以自己指定，在設定檔加上 `llm.modelCandidates` 即可，不必等 CodeReel 更新：
-
-```json
-{
-  "llm": {
-    "modelCandidates": ["auto", "opus", "sonnet", "haiku"]
-  }
-}
 ```
 
 設定檔位置就是 `init` 印出的那一行，之後要調整任何設定都是改這個檔案。它同時會被設為目前專案，因此後續命令不需要填設定檔名稱。切換 repo 時重新執行一次 `init` 即可：既有設定不會被覆寫，CodeReel 會另外建立以 repo 命名的設定檔（例如 `MyApp.config.json`）。

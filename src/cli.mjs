@@ -4,7 +4,7 @@ import readline from 'node:readline/promises';
 import { fileURLToPath } from 'node:url';
 import { initializeConfig, loadConfig, resolveConfigPath, setActiveConfig } from './lib/config.mjs';
 import { runDoctor } from './lib/doctor.mjs';
-import { probeClaudeModels } from './lib/llm.mjs';
+import { claudeModelCandidates } from './lib/llm.mjs';
 import { readPipelineStatus, runPipeline, withPipelineLock } from './lib/pipeline.mjs';
 import { parseCliArgs, readJson, writeJsonAtomic } from './lib/utils.mjs';
 import { runQa } from './lib/qa.mjs';
@@ -43,26 +43,15 @@ async function chooseModel(config, configPath) {
     return await applyModel(configPath, String(args.model).trim(), config.llm.model);
   }
   if (!interactive()) return null;
-  console.log('\n正在確認這個帳號可以使用哪些模型…');
-  const probed = await probeClaudeModels(config);
-  const usable = probed.filter((item) => item.available);
-  if (usable.length === 0) {
-    console.log('目前無法確認可用模型，先沿用 llm.model。稍後可執行 claude auth login 再重跑 init。');
-    return null;
-  }
-  console.log('\n分析與課程規劃要用哪個模型？箭頭右邊是這個帳號實際會跑到的模型。');
-  usable.forEach((item, index) => {
-    const current = item.value === config.llm.model ? '（目前）' : '';
-    const mismatch = item.matchesRequest ? '' : '［你的帳號不能用，會改跑左邊以外的模型］';
-    console.log(`  ${index + 1}) ${item.value.padEnd(7)} → ${String(item.resolvedModel).padEnd(26)} ${item.summary}${mismatch}${current}`);
+  const candidates = claudeModelCandidates(config);
+  console.log('\n分析與課程規劃要用哪個模型？');
+  candidates.forEach((value, index) => {
+    console.log(`  ${index + 1}) ${value}${value === config.llm.model ? '（目前）' : ''}`);
   });
-  for (const item of probed.filter((entry) => !entry.available)) {
-    console.log(`  -  ${item.value.padEnd(7)} 無法使用`);
-  }
   const answer = await ask(`\n輸入編號（直接按 Enter 沿用 ${config.llm.model}）：`);
-  const picked = usable[Number(answer) - 1];
+  const picked = candidates[Number(answer) - 1];
   if (!picked) return null;
-  return await applyModel(configPath, picked.value, config.llm.model, picked.resolvedModel);
+  return await applyModel(configPath, picked, config.llm.model);
 }
 
 async function resolvePurpose(config) {
@@ -85,7 +74,7 @@ function help() {
   console.log(`CodeReel 0.1.0
 
 用法：
-  codereel init --repo <repo路徑> [--config codereel.config.json] [--model <auto|opus|sonnet|haiku>]
+  codereel init --repo <repo路徑> [--config codereel.config.json] [--model <模型名稱>]
   codereel doctor [--config <設定檔>]
   codereel analyze [--config <設定檔>] [--purpose "<課程目的>"] [--force]
   codereel build [--config <設定檔>] [--purpose "<課程目的>"] [--force] [--overwrite-deck-edits]
@@ -99,7 +88,7 @@ function help() {
   run      再建立逐頁音訊、SRT、章節與 MP4
 
 省略 --config 時，使用最近一次 init 選定的設定檔。
-init 會實際測試各模型是否可用再讓你挑；analyze／build／run 會先確認課程目的。
+init 會列出模型讓你挑；analyze／build／run 會先確認課程目的。
 加上 --no-prompt 可跳過所有互動詢問，直接沿用設定檔的值。
 Azure 正式配音只有在未命中快取且傳入與外送預覽完全相符的 --approve-tts digest 時才會呼叫。`);
 }
