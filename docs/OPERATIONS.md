@@ -8,7 +8,7 @@
 npm run codereel -- doctor
 ```
 
-必要通過：Node.js、repo 路徑、PowerPoint、FFmpeg／ffprobe、分析模型（預設為已登入的 Claude Code CLI）。TTS 只有在要產生影片時才是必要項目。
+必要通過：Node.js、repo 路徑、投影片 renderer（Windows 為 PowerPoint，macOS／Linux 為 LibreOffice 加 pdftoppm）、FFmpeg／ffprobe、分析模型（預設為已登入的 Claude Code CLI）。TTS 只有在要產生影片時才是必要項目。
 
 ## 2. Analyze
 
@@ -71,7 +71,7 @@ npm run codereel -- qa
 
 - plan、notes、PNG、audio、scene 與 manifest 頁數 1:1。
 - 逐頁來源引用覆蓋率 100%，並人工核對每個 claim 與 excerpt 的語意。
-- PowerPoint overflow 0。
+- 版面溢出 0（LibreOffice renderer 不做這項檢查，QA 會改列為警告，需人工確認文字沒有被裁切）。
 - 1920×1080、H.264、AAC、yuv420p。
 - SRT 時間遞增、不重疊、不超出影片。
 - 逐頁抽看 PNG；抽聽開場、中段、技術縮寫密集頁與結尾。
@@ -108,7 +108,13 @@ npm run codereel -- run --approve-tts=<報告中的-digest> --force
 - 確認端點監聽 loopback。
 - `model=auto` 會選清單第一個模型；正式使用建議固定模型名稱。
 
-### PowerPoint COM 失敗
+### LibreOffice renderer 失敗（macOS／Linux）
+
+- `doctor` 的 `renderer.nextSteps` 會列出缺少的是 LibreOffice 還是 poppler，照著裝即可。
+- 轉檔使用獨立的 LibreOffice 設定檔目錄，不會被已開啟的 LibreOffice 佔用；若仍失敗，先關閉 LibreOffice 再試。
+- 安裝在非標準路徑時，設定 `slides.libreOfficeExecutable` 與 `slides.pdfToPpmExecutable` 為完整路徑。
+
+### PowerPoint COM 失敗（Windows）
 
 - 執行 `doctor`、`build` 或 `run` 前先關閉 PowerPoint；CodeReel 偵測到既有 PowerPoint 時會停止，且不會關閉目前工作中的簡報。
 - 確認 PPTX 可手動開啟且不要求修復。

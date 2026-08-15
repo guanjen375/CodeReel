@@ -164,8 +164,11 @@ export async function runQa(config) {
       if (video.chapters[index]?.slideId !== plan.slides[index]?.id) failures.push(`第 ${index + 1} 頁章節 slideId 與課程計畫不符。`);
     }
   }
-  if (!render || render.width !== 1920 || render.height !== 1080 || render.slides !== expected) failures.push('PowerPoint render 規格或頁數不符。');
-  if (!overflow.passed || overflow.issueCount > 0) failures.push(`PowerPoint overflow 檢查有 ${overflow.issueCount} 個問題。`);
+  if (!render || render.width !== 1920 || render.height !== 1080 || render.slides !== expected) failures.push('投影片渲染規格或頁數不符。');
+  if (!overflow.passed || overflow.issueCount > 0) failures.push(`版面溢出檢查有 ${overflow.issueCount} 個問題。`);
+  else if (overflow.inspected === false) {
+    warnings.push(`${overflow.provider || '目前的'} renderer 無法量測文字框，未執行版面溢出檢查；發布前請人工確認每頁文字沒有被裁切。`);
+  }
   if (evidence.coverage.percent !== 100) failures.push(`逐頁來源引用覆蓋率只有 ${evidence.coverage.percent}%`);
   for (const entry of display) {
     if (!entry.display.trim()) failures.push(`第 ${entry.slide} 頁講稿為空。`);

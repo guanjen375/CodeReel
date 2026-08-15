@@ -22,7 +22,7 @@ RepoManifest
 - `plan.mjs`：頁數、禁詞、證據行號、逐字 code／command 驗證。
 - `deck.mjs`：固定 16:9 可編輯 PowerPoint layout 與 speaker notes。
 - `narration.mjs`：從 PPTX ZIP 關聯實際抽取 notes，移除來源區塊並建立發音稿。
-- `render.mjs`：PowerPoint COM 原生輸出與 overflow gate。
+- `render.mjs`：Windows 走 PowerPoint COM 原生輸出與 overflow gate；macOS／Linux 走 LibreOffice 轉 PDF 再由 pdftoppm 逐頁輸出 1920×1080 PNG，該路徑沒有文字框量測，因此不做 overflow gate，改由 QA 提出警告。
 - `tts.mjs`：Azure、Piper、fixture；外送預覽、付費核准、逐頁內容快取。
 - `media.mjs`：ffprobe duration、逐頁 scene、concat、兩階段 loudnorm、字幕與章節。
 - `qa.mjs`：證據、notes、PNG、音訊、scene、codec、SRT、抽幀與發布警告。

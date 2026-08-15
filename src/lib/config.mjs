@@ -1,5 +1,6 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import { defaultRenderProvider } from './render.mjs';
 import { isPathInside, pathExists, readJson, safeName, sha256, writeJsonAtomic } from './utils.mjs';
 
 const activeConfigRelativePath = path.join('.codereel', 'active-config.json');
@@ -32,6 +33,8 @@ const defaults = {
     fontFace: 'Microsoft JhengHei',
     codeFontFace: 'Cascadia Mono',
     renderProvider: 'powerpoint',
+    libreOfficeExecutable: '',
+    pdfToPpmExecutable: '',
     width: 1920,
     height: 1080,
   },
@@ -241,7 +244,12 @@ function validateConfig(config) {
   if (config.slides.width !== 1920 || config.slides.height !== 1080) {
     throw new Error('MVP 固定輸出 1920×1080；請保留 slides.width=1920、height=1080。');
   }
-  if (config.slides.renderProvider !== 'powerpoint') throw new Error('MVP 目前只支援 slides.renderProvider=powerpoint。');
+  if (!['powerpoint', 'libreoffice'].includes(config.slides.renderProvider)) {
+    throw new Error(`不支援的 slides.renderProvider：${config.slides.renderProvider}`);
+  }
+  if (config.slides.renderProvider === 'powerpoint' && process.platform !== 'win32') {
+    throw new Error('slides.renderProvider=powerpoint 需要 Windows；其他平台請改為 libreoffice。');
+  }
   if (config.video.fps !== 30 || config.video.videoCodec !== 'libx264' || config.video.audioCodec !== 'aac') {
     throw new Error('MVP 發布規格固定為 30 FPS、libx264 與 AAC。');
   }
@@ -318,6 +326,7 @@ export async function initializeConfig({ sourceTemplate, destination, repoPath, 
   const template = sourceTemplate && await pathExists(sourceTemplate) ? await readJson(sourceTemplate) : {};
   const config = mergeDeep(defaults, template);
   config.repoPath = resolvedRepoPath;
+  config.slides.renderProvider = defaultRenderProvider();
   if (config.slides?.themeFile && !path.isAbsolute(config.slides.themeFile)) {
     const templateDirectory = sourceTemplate ? path.dirname(path.resolve(sourceTemplate)) : process.cwd();
     config.slides.themeFile = path.resolve(templateDirectory, config.slides.themeFile);

@@ -1,5 +1,5 @@
 import fs from 'node:fs/promises';
-import { checkPowerPoint } from './render.mjs';
+import { checkRenderer } from './render.mjs';
 import { assertLlmPrivacy, checkClaudeCli, llmSetupInstructions } from './llm.mjs';
 import { findCommand, isLoopbackUrl, runProcess } from './utils.mjs';
 import { azureEndpoint } from './tts.mjs';
@@ -94,8 +94,8 @@ async function ffmpegCapabilities(command) {
 export async function runDoctor(config) {
   assertLlmPrivacy(config);
   const repoStat = await fs.stat(config.repoPath).catch(() => null);
-  const [ffmpeg, ffprobe, powerPoint, llm, tts] = await Promise.all([
-    commandVersion('ffmpeg'), commandVersion('ffprobe'), checkPowerPoint(), llmStatus(config),
+  const [ffmpeg, ffprobe, renderer, llm, tts] = await Promise.all([
+    commandVersion('ffmpeg'), commandVersion('ffprobe'), checkRenderer(config), llmStatus(config),
     ttsStatus(config),
   ]);
   ffmpeg.capabilities = await ffmpegCapabilities(ffmpeg);
@@ -108,7 +108,7 @@ export async function runDoctor(config) {
     repo: { available: Boolean(repoStat?.isDirectory()), path: config.repoPath },
     ffmpeg,
     ffprobe,
-    powerPoint,
+    renderer,
     llm,
     tts,
     privacy: {
@@ -117,7 +117,7 @@ export async function runDoctor(config) {
       sourceCodeLeavesMachine: llm.local === false,
     },
   };
-  report.canBuildDeck = report.node.available && report.repo.available && powerPoint.available && llm.available;
+  report.canBuildDeck = report.node.available && report.repo.available && renderer.available && llm.available;
   report.canBuildVideo = report.canBuildDeck && ffmpeg.available && ffprobe.available && tts.available && config.tts.provider !== 'none';
   return report;
 }

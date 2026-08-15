@@ -4,12 +4,22 @@
 
 ## 1. 安裝需求
 
-- Windows 11
+共通需求：
+
 - Node.js 20 或更新版本
-- Microsoft PowerPoint 桌面版
-- FFmpeg 與 ffprobe，且可從 PowerShell 直接執行
+- FFmpeg 與 ffprobe，且可從終端機直接執行
 - Claude Code CLI，且已用 Claude 訂閱帳號登入
 - 正式影片配音：Azure Speech 付費方案與預建 `zh-TW` 語音
+
+投影片渲染依平台而異，`init` 會自動選好，不需要手動設定：
+
+| 平台 | `slides.renderProvider` | 需要安裝 |
+|---|---|---|
+| Windows | `powerpoint` | Microsoft PowerPoint 桌面版 |
+| macOS | `libreoffice` | `brew install --cask libreoffice` 與 `brew install poppler` |
+| Linux | `libreoffice` | `sudo apt install libreoffice-impress poppler-utils` |
+
+**Windows 11 是唯一經過完整實測的環境**；macOS 與 Linux 的路徑已實作並通過單元測試，但尚未跑過完整產出。
 
 先確認命令可執行：
 
@@ -123,7 +133,7 @@ npm run codereel -- init --repo "D:\Projects\MyApp" --model opus
 
 ## 5. 產出投影片
 
-先關閉已開啟的 PowerPoint，再檢查環境：
+先關閉已開啟的 PowerPoint 或 LibreOffice，再檢查環境：
 
 ```powershell
 npm run codereel -- doctor

@@ -2,8 +2,134 @@ import crypto from 'node:crypto';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
-import { ensureDir, findCommand, readJson, runProcess } from './utils.mjs';
+import { fileURLToPath, pathToFileURL } from 'node:url';
+import { ensureDir, findCommand, pathExists, readJson, runProcess, writeJsonAtomic } from './utils.mjs';
+
+const LIBREOFFICE_CONVERT_TIMEOUT_MS = 10 * 60_000;
+const LIBREOFFICE_PAGE_TIMEOUT_MS = 120_000;
+
+const libreOfficeNames = [
+  'soffice',
+  'libreoffice',
+  '/Applications/LibreOffice.app/Contents/MacOS/soffice',
+  'C:\\Program Files\\LibreOffice\\program\\soffice.exe',
+  'C:\\Program Files (x86)\\LibreOffice\\program\\soffice.exe',
+];
+
+export function defaultRenderProvider(platform = process.platform) {
+  return platform === 'win32' ? 'powerpoint' : 'libreoffice';
+}
+
+async function findLibreOffice(config) {
+  const configured = String(config.slides.libreOfficeExecutable || '').trim();
+  for (const name of configured ? [configured] : libreOfficeNames) {
+    const found = await findCommand(name);
+    if (found) return found;
+  }
+  return null;
+}
+
+function libreOfficeMissing(config) {
+  return [
+    '找不到 LibreOffice（soffice）。',
+    process.platform === 'darwin' ? '安裝：brew install --cask libreoffice' : '安裝：sudo apt install libreoffice-impress',
+    '或把 slides.libreOfficeExecutable 設為 soffice 的完整路徑。',
+  ].join('\n');
+}
+
+function pdfToPpmMissing() {
+  return [
+    '找不到 pdftoppm（poppler-utils）。',
+    process.platform === 'darwin' ? '安裝：brew install poppler' : '安裝：sudo apt install poppler-utils',
+    '或把 slides.pdfToPpmExecutable 設為 pdftoppm 的完整路徑。',
+  ].join('\n');
+}
+
+async function renderWithLibreOffice(config, plan) {
+  const [soffice, pdftoppm] = await Promise.all([
+    findLibreOffice(config),
+    findCommand(String(config.slides.pdfToPpmExecutable || '').trim() || 'pdftoppm'),
+  ]);
+  if (!soffice) throw new Error(libreOfficeMissing(config));
+  if (!pdftoppm) throw new Error(pdfToPpmMissing());
+  await ensureDir(config.paths.slides);
+  await ensureDir(config.paths.qa);
+  const workDir = await fs.mkdtemp(path.join(os.tmpdir(), 'codereel-soffice-'));
+  try {
+    await runProcess(soffice, libreOfficeConvertArgs(config.paths.deckFile, workDir), {
+      timeoutMs: LIBREOFFICE_CONVERT_TIMEOUT_MS,
+    });
+    const pdf = path.join(workDir, `${path.basename(config.paths.deckFile, path.extname(config.paths.deckFile))}.pdf`);
+    if (!await pathExists(pdf)) throw new Error(`LibreOffice 沒有輸出 PDF：${pdf}`);
+
+    const expected = plan.slides.length;
+    for (let slide = 1; slide <= expected; slide += 1) {
+      await renderPdfPage(pdftoppm, pdf, slide, path.join(config.paths.slides, `slide-${slide}`));
+      await assertRenderedPage(path.join(config.paths.slides, `slide-${slide}.png`), slide);
+    }
+    const extra = path.join(workDir, 'extra');
+    await renderPdfPage(pdftoppm, pdf, expected + 1, extra, true);
+    if (await pathExists(`${extra}.png`)) throw new Error(`PDF 頁數多於課程計畫的 ${expected} 頁。`);
+
+    await writeJsonAtomic(config.paths.renderReport, {
+      schemaVersion: 1,
+      provider: 'libreoffice',
+      pptx: config.paths.deckFile,
+      outputDir: config.paths.slides,
+      slides: expected,
+      width: 1920,
+      height: 1080,
+      generatedAt: new Date().toISOString(),
+    });
+    await writeJsonAtomic(config.paths.overflowReport, {
+      schemaVersion: 1,
+      provider: 'libreoffice',
+      pptx: config.paths.deckFile,
+      slides: expected,
+      inspected: false,
+      reason: 'libreoffice-renderer-has-no-text-metrics',
+      checkedTextFrames: 0,
+      issueCount: 0,
+      issues: [],
+      passed: true,
+      generatedAt: new Date().toISOString(),
+    });
+    return {
+      render: await readJson(config.paths.renderReport),
+      overflow: await readJson(config.paths.overflowReport),
+    };
+  } finally {
+    await fs.rm(workDir, { recursive: true, force: true });
+  }
+}
+
+export function libreOfficeConvertArgs(deckFile, workDir) {
+  return [
+    '--headless', '--norestore', '--nolockcheck', '--nodefault', '--nofirststartwizard',
+    `-env:UserInstallation=${pathToFileURL(path.join(workDir, 'profile')).href}`,
+    '--convert-to', 'pdf', '--outdir', workDir, deckFile,
+  ];
+}
+
+export function pdfToPpmArgs(pdf, page, outputPrefix, width = 1920, height = 1080) {
+  return [
+    '-png', '-f', String(page), '-l', String(page), '-singlefile',
+    '-scale-to-x', String(width), '-scale-to-y', String(height), pdf, outputPrefix,
+  ];
+}
+
+async function renderPdfPage(pdftoppm, pdf, page, outputPrefix, allowFailure = false) {
+  await runProcess(pdftoppm, pdfToPpmArgs(pdf, page, outputPrefix), {
+    timeoutMs: LIBREOFFICE_PAGE_TIMEOUT_MS, allowFailure,
+  });
+}
+
+async function assertRenderedPage(file, slide) {
+  const stat = await fs.lstat(file).catch(() => null);
+  if (!stat?.isFile() || stat.isSymbolicLink() || stat.size === 0) {
+    throw new Error(`第 ${slide} 頁沒有渲染成 PNG：${file}`);
+  }
+}
 
 const scriptsDir = fileURLToPath(new URL('../../scripts/', import.meta.url));
 const POWERPOINT_RENDER_TIMEOUT_MS = 10 * 60_000;
@@ -54,10 +180,13 @@ async function waitForPowerPointExit(powershell, timeoutMs = 30_000) {
 }
 
 export async function renderDeck(config, plan) {
+  if (config.slides.renderProvider === 'libreoffice') return await renderWithLibreOffice(config, plan);
   if (config.slides.renderProvider !== 'powerpoint') {
-    throw new Error(`MVP 目前只支援 slides.renderProvider=powerpoint，收到：${config.slides.renderProvider}`);
+    throw new Error(`不支援的 slides.renderProvider：${config.slides.renderProvider}`);
   }
-  if (process.platform !== 'win32') throw new Error('PowerPoint renderer 目前需要 Windows。');
+  if (process.platform !== 'win32') {
+    throw new Error('PowerPoint renderer 需要 Windows；其他平台請把 slides.renderProvider 設為 libreoffice。');
+  }
   const release = await acquirePowerPointLock();
   try {
     const powershell = await findCommand('powershell.exe');
@@ -88,6 +217,30 @@ export async function renderDeck(config, plan) {
   } finally {
     await release();
   }
+}
+
+export async function checkRenderer(config) {
+  if (config.slides.renderProvider === 'libreoffice') return await checkLibreOffice(config);
+  const report = await checkPowerPoint();
+  return { ...report, provider: 'powerpoint', textFitInspected: true };
+}
+
+async function checkLibreOffice(config) {
+  const [soffice, pdftoppm] = await Promise.all([
+    findLibreOffice(config),
+    findCommand(String(config.slides.pdfToPpmExecutable || '').trim() || 'pdftoppm'),
+  ]);
+  const nextSteps = [];
+  if (!soffice) nextSteps.push(libreOfficeMissing(config));
+  if (!pdftoppm) nextSteps.push(pdfToPpmMissing());
+  return {
+    available: Boolean(soffice && pdftoppm),
+    provider: 'libreoffice',
+    soffice,
+    pdftoppm,
+    textFitInspected: false,
+    ...(nextSteps.length > 0 ? { nextSteps } : {}),
+  };
 }
 
 export async function checkPowerPoint() {
