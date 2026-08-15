@@ -1,0 +1,9 @@
+node_modules/
+.codereel/
+output/
+demo-output/
+*.log
+codereel.config.json
+.env
+*.key
+*.pem

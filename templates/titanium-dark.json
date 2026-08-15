@@ -1,0 +1,24 @@
+{
+  "name": "titanium-dark",
+  "colors": {
+    "background": "111820",
+    "surface": "1A2530",
+    "surfaceAlt": "22313D",
+    "text": "F4F7FA",
+    "muted": "AEBBC7",
+    "accent": "57D3C7",
+    "accentAlt": "E8B15C",
+    "danger": "F07178",
+    "line": "405362",
+    "codeBackground": "0B1117",
+    "codeText": "D6E4EE"
+  },
+  "typography": {
+    "deckTitlePt": 50,
+    "slideTitlePt": 35,
+    "subheadingPt": 24,
+    "bodyPt": 18,
+    "codePt": 15,
+    "footerPt": 10
+  }
+}

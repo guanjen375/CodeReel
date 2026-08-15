@@ -1,0 +1,67 @@
+{
+  "repoPath": "../fixtures/demo-repo",
+  "outputRoot": "../demo-output",
+  "project": {
+    "title": "TaskBoard 教學",
+    "targetMinutes": 0.25,
+    "minSlides": 6,
+    "maxSlides": 8,
+    "fundamentalsRatio": 0.7,
+    "purpose": "示範 CodeReel 完整離線流程"
+  },
+  "llm": {
+    "provider": "fixture",
+    "fixturePlan": "./demo-course-plan.json",
+    "baseUrl": "http://127.0.0.1:8080/v1",
+    "model": "fixture",
+    "temperature": 0,
+    "timeoutMs": 30000,
+    "maxSourceChars": 50000,
+    "maxSelectedFiles": 10
+  },
+  "slides": {
+    "themeFile": "../templates/titanium-dark.json",
+    "fontFace": "Microsoft JhengHei",
+    "codeFontFace": "Cascadia Mono",
+    "renderProvider": "powerpoint",
+    "width": 1920,
+    "height": 1080
+  },
+  "tts": {
+    "provider": "fixture",
+    "voice": "fixture-silence",
+    "rate": "0%",
+    "pronunciation": {
+      "spellAcronyms": true,
+      "underscoresAsPause": true,
+      "replacements": [
+        { "from": "API", "to": "A P I" },
+        { "from": "CLI", "to": "C L I" }
+      ]
+    }
+  },
+  "video": {
+    "fps": 30,
+    "preRollMs": 250,
+    "tailPaddingMs": 400,
+    "videoCodec": "libx264",
+    "audioCodec": "aac",
+    "audioBitrate": "128k",
+    "crf": 25,
+    "loudnessNormalization": false,
+    "integratedLufs": -16,
+    "truePeakDb": -1.5,
+    "burnSubtitles": false
+  },
+  "scan": {
+    "maxFileBytes": 524288,
+    "maxFiles": 100,
+    "includeExtensions": [".md", ".mjs", ".json"],
+    "excludeDirectories": [".git", ".codereel", "node_modules", "output", "demo-output"],
+    "excludeFiles": [".env"]
+  },
+  "privacy": {
+    "requireLocalLlm": true,
+    "sendOnlyNarrationToTts": true
+  }
+}

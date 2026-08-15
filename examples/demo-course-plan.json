@@ -1,0 +1,69 @@
+{
+  "projectTitle": "TaskBoard",
+  "courseTitle": "TaskBoard：從安裝到第一個任務",
+  "summary": "以最短路徑完成安裝、啟動、建立任務與驗證資料保存。",
+  "slides": [
+    {
+      "kind": "cover",
+      "section": "開始",
+      "title": "TaskBoard",
+      "subtitle": "從安裝到第一個任務",
+      "bullets": [],
+      "narration": "這部教學會帶你從零開始啟動 TaskBoard，建立第一個任務，最後確認資料已正確保存。",
+      "evidence": [{"path": "README.md", "startLine": 1, "endLine": 8, "claim": "專案用途與快速開始"}]
+    },
+    {
+      "kind": "agenda",
+      "section": "開始",
+      "title": "學習路徑",
+      "subtitle": "先跑起來，再理解資料流",
+      "bullets": ["確認環境", "啟動服務", "建立任務", "驗證資料"],
+      "narration": "流程分成四步。先確認執行環境，再啟動服務；接著用 API 建立任務，最後讀回資料完成驗收。",
+      "evidence": [{"path": "README.md", "startLine": 10, "endLine": 27, "claim": "快速開始步驟"}]
+    },
+    {
+      "kind": "steps",
+      "section": "部署",
+      "title": "安裝與啟動",
+      "subtitle": "兩個命令完成第一次啟動",
+      "bullets": ["執行 npm install", "執行 npm start", "看到 listening 訊息"],
+      "code": {"language": "powershell", "text": "npm install\nnpm start", "caption": "在專案根目錄執行"},
+      "narration": "先在專案根目錄執行 npm install 安裝相依套件，再執行 npm start。終端機顯示 listening 後，就代表服務已經可以接受請求。",
+      "evidence": [{"path": "README.md", "startLine": 10, "endLine": 17, "claim": "安裝與啟動命令"}]
+    },
+    {
+      "kind": "code",
+      "section": "操作",
+      "title": "建立第一個任務",
+      "subtitle": "POST /tasks",
+      "bullets": ["送出 title", "回傳 id 與完成狀態", "輸入錯誤會回傳 400"],
+      "code": {"language": "bash", "text": "curl -X POST http://localhost:3030/tasks -d '{\"title\":\"閱讀文件\"}'", "caption": "最小建立請求"},
+      "narration": "建立任務時，呼叫 POST tasks，並送出 title。成功後會回傳任務識別碼和完成狀態；若 title 為空，服務會拒絕請求。",
+      "evidence": [
+        {"path": "README.md", "startLine": 19, "endLine": 25, "claim": "建立任務的實際命令"},
+        {"path": "src/server.mjs", "startLine": 13, "endLine": 24, "claim": "建立任務端點與欄位驗證"}
+      ]
+    },
+    {
+      "kind": "concept",
+      "section": "理解",
+      "title": "資料如何保存",
+      "subtitle": "記憶體中的單一任務清單",
+      "bullets": ["tasks 陣列保存目前資料", "id 依序增加", "重新啟動後資料會清空"],
+      "narration": "目前版本把任務保存在記憶體陣列，識別碼依序增加。這讓範例容易理解，但服務重新啟動後資料會清空，正式使用時應替換成持久化儲存。",
+      "evidence": [{"path": "src/server.mjs", "startLine": 4, "endLine": 6, "claim": "記憶體資料結構"}]
+    },
+    {
+      "kind": "summary",
+      "section": "完成",
+      "title": "完成條件",
+      "subtitle": "能啟動、能建立、能讀回",
+      "bullets": ["服務成功啟動", "POST 建立任務", "GET 讀回同一筆資料"],
+      "narration": "最後用三個條件驗收：服務能啟動，POST 能建立任務，GET 能讀回同一筆資料。三項都通過，就完成第一次操作。",
+      "evidence": [
+        {"path": "README.md", "startLine": 19, "endLine": 27, "claim": "驗收請求"},
+        {"path": "src/server.mjs", "startLine": 8, "endLine": 29, "claim": "讀取與建立端點"}
+      ]
+    }
+  ]
+}

@@ -1,0 +1,100 @@
+{
+  "repoPath": "C:/path/to/source-repo",
+  "outputRoot": "./output",
+  "project": {
+    "title": "",
+    "targetMinutes": 15,
+    "minSlides": 10,
+    "maxSlides": 24,
+    "fundamentalsRatio": 0.7,
+    "purpose": "快速完成專案的安裝、啟動、驗證與第一個實際操作"
+  },
+  "llm": {
+    "provider": "openai-compatible",
+    "baseUrl": "http://127.0.0.1:8080/v1",
+    "model": "auto",
+    "apiKeyEnv": "",
+    "temperature": 0.2,
+    "timeoutMs": 180000,
+    "maxResponseBytes": 4194304,
+    "maxSourceChars": 180000,
+    "maxSelectedFiles": 28
+  },
+  "slides": {
+    "themeFile": "./templates/titanium-dark.json",
+    "fontFace": "Microsoft JhengHei",
+    "codeFontFace": "Cascadia Mono",
+    "renderProvider": "powerpoint",
+    "width": 1920,
+    "height": 1080
+  },
+  "tts": {
+    "provider": "azure",
+    "voice": "zh-TW-HsiaoChenNeural",
+    "rate": "-6%",
+    "outputFormat": "audio-24khz-96kbitrate-mono-mp3",
+    "maxBillableCharacters": 30000,
+    "maxEstimatedCost": 10,
+    "maxAudioBytesPerSlide": 26214400,
+    "estimatedCharactersPerMinute": 260,
+    "azureKeyEnv": "AZURE_SPEECH_KEY",
+    "azureRegionEnv": "AZURE_SPEECH_REGION",
+    "azureEndpointEnv": "AZURE_SPEECH_ENDPOINT",
+    "ratePerMillionCharacters": null,
+    "pricingCurrency": null,
+    "pricingSnapshotDate": null,
+    "licenseRecord": "",
+    "piperExecutable": "piper",
+    "piperModel": "",
+    "pronunciation": {
+      "spellAcronyms": true,
+      "underscoresAsPause": true,
+      "replacements": [
+        { "from": "aicode", "to": "A I code" },
+        { "from": "CodeReel", "to": "Code Reel" },
+        { "from": "README", "to": "read me" },
+        { "from": "RAG", "to": "R A G" },
+        { "from": "LLM", "to": "L L M" },
+        { "from": "API", "to": "A P I" },
+        { "from": "CLI", "to": "C L I" }
+      ]
+    }
+  },
+  "video": {
+    "fps": 30,
+    "preRollMs": 600,
+    "tailPaddingMs": 1500,
+    "videoCodec": "libx264",
+    "audioCodec": "aac",
+    "audioBitrate": "160k",
+    "crf": 21,
+    "loudnessNormalization": true,
+    "integratedLufs": -16,
+    "truePeakDb": -1.5,
+    "burnSubtitles": false
+  },
+  "scan": {
+    "maxFileBytes": 524288,
+    "maxFiles": 4000,
+    "includeExtensions": [
+      ".md", ".txt", ".rst", ".js", ".mjs", ".cjs", ".ts", ".tsx", ".jsx",
+      ".py", ".go", ".rs", ".java", ".kt", ".kts", ".c", ".h", ".cpp", ".hpp",
+      ".cs", ".php", ".rb", ".swift", ".scala", ".sh", ".ps1", ".bat", ".cmd",
+      ".json", ".jsonc", ".yaml", ".yml", ".toml", ".ini", ".cfg", ".xml",
+      ".html", ".css", ".scss", ".sql", ".proto", ".dockerfile"
+    ],
+    "excludeDirectories": [
+      ".git", ".svn", ".hg", "node_modules", "vendor", "dist", "build", "coverage",
+      ".next", ".nuxt", ".cache", ".codereel", ".venv", "venv", "__pycache__", "target", "bin", "obj",
+      "output", "demo-output"
+    ],
+    "excludeFiles": [
+      ".env", ".env.local", ".env.production", "id_rsa", "id_ed25519",
+      "credentials.json", "service-account.json"
+    ]
+  },
+  "privacy": {
+    "requireLocalLlm": true,
+    "sendOnlyNarrationToTts": true
+  }
+}
