@@ -61,7 +61,7 @@ npm run codereel -- init --repo "."
 
 ## 4. 設定本機模型
 
-在 `init` 顯示的設定檔中選擇一種端點。
+以下兩種端點擇一設定，不是連續步驟。預設採用 Ollama；完成 Ollama 小節後直接前往「產出投影片」，不需要再設定 OpenAI-compatible API。
 
 ### Ollama（預設）
 
@@ -101,7 +101,9 @@ ollama pull qwen3-coder:30b
 ollama list
 ```
 
-### OpenAI-compatible API
+### OpenAI-compatible API（選用）
+
+此選項只連接「已另外啟動」的本機 OpenAI-compatible 服務，不會自動連接 OpenAI、ChatGPT 或 Codex，也不會自動建立服務或下載模型。若沒有已在 `127.0.0.1:8080` 提供 `/v1/models` 與 `/v1/chat/completions` 的服務，請跳過這一節並使用 Ollama。
 
 ```json
 {
@@ -113,7 +115,7 @@ ollama list
 }
 ```
 
-`"model": "auto"` 會讀取端點的模型清單並自動選取，不需要填寫確切模型名稱。`auto` 不會下載模型；端點內必須已存在至少一個模型。
+設定完成後，`doctor` 會先呼叫 `http://127.0.0.1:8080/v1/models`。`"model": "auto"` 只會從該服務回傳的清單選取第一個模型；它不會推測模型名稱或下載模型。端點沒有服務或沒有載入模型時，`doctor` 會顯示 `llm.available=false`，且 `build` 不會繼續。
 
 只有 `doctor` 顯示 `llm.available=true` 與 `canBuildDeck=true` 後才執行 `build`。若端點未啟動，`doctor` 會列出修復命令。
 
