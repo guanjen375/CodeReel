@@ -66,7 +66,8 @@ export function normalizeCoursePlanCommandPlacement(plan, config = null) {
   if (!plan || !Array.isArray(plan.slides)) return plan;
   const slides = plan.slides.map((slide) => {
       let code = slide.code;
-      if (['steps', 'code'].includes(slide.kind) && !String(code?.text || '').trim()) {
+      let kind = slide.kind;
+      if (!['cover', 'agenda', 'summary'].includes(slide.kind) && !String(code?.text || '').trim()) {
         const prose = [slide.title, slide.subtitle, ...(slide.bullets || []), slide.narration].filter(Boolean).join('\n');
         const commands = [];
         for (const pattern of promotableCommandPatterns) {
@@ -79,6 +80,7 @@ export function normalizeCoursePlanCommandPlacement(plan, config = null) {
           code = { language: 'powershell', text: commands.join('\n'), caption: '依來源文件在專案根目錄執行' };
         }
       }
+      if (kind === 'code' && !String(code?.text || '').trim()) kind = 'concept';
       const codeLines = String(code?.text || '')
         .split(/\r?\n/u)
         .map((line) => line.trim())
@@ -95,6 +97,7 @@ export function normalizeCoursePlanCommandPlacement(plan, config = null) {
         : slide.bullets;
       return {
         ...slide,
+        kind,
         code,
         title: neutralizeAudienceReferences(replaceCodeEcho(slide.title)),
         subtitle: neutralizeAudienceReferences(replaceCodeEcho(slide.subtitle)),

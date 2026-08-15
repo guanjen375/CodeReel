@@ -55,6 +55,12 @@ test('課程文字不保留對象身分標籤', () => {
   assert.doesNotMatch(JSON.stringify(normalized), /初學者|使用者|適用對象|剛接觸專案者/u);
 });
 
+test('沒有程式碼內容的 code 頁會改為說明頁', () => {
+  const input = planWith({ kind: 'code', code: undefined, bullets: ['架構重點', '驗證方式'] });
+  const normalized = normalizeCoursePlanCommandPlacement(input);
+  assert.equal(normalized.slides.find((slide) => slide.title === '第 2 頁').kind, 'concept');
+});
+
 test('即使有證據，高風險刪除命令也不發布', () => {
   assert.throws(() => validateCoursePlanShape(planWith({ code: { text: 'Remove-Item C:\\data -Recurse -Force' } }), config), /高風險命令/u);
 });

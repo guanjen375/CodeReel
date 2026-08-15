@@ -6,7 +6,7 @@ const defaults = {
   outputRoot: './output',
   project: {
     title: '',
-    targetMinutes: 15,
+    targetMinutes: 8,
     minSlides: 10,
     maxSlides: 24,
     fundamentalsRatio: 0.7,

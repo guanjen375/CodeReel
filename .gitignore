@@ -4,6 +4,7 @@ output/
 demo-output/
 *.log
 codereel.config.json
+/*.config.json
 .env
 *.key
 *.pem
