@@ -29,37 +29,15 @@ ffprobe -version
 npm ci --ignore-scripts
 ```
 
-先用內附示例確認完整管線可執行；這個命令不呼叫本機 LLM 或付費語音：
+先用內附示例確認完整管線可執行；這個命令使用固定的示例資料，不呼叫任何模型或付費語音，因此可以在完成第 3 步之前執行：
 
 ```powershell
 npm run demo
 ```
 
-## 3. 建立設定檔
+## 3. 設定 Claude Code
 
-```powershell
-npm run codereel -- init --repo "C:\path\to\source-repo"
-```
-
-`--repo` 必須指向要製作教材的來源 repo，可使用絕對或相對路徑。`init` 會建立完整設定檔並將它設為目前專案；後續命令不需要填設定檔名稱。切換 repo 時重新執行一次 `init` 即可，既有設定不會被覆寫。
-
-例如 CodeReel 位於 `C:\Tools\CodeReel`，來源 repo 位於 `D:\Projects\MyApp`：
-
-```powershell
-PS C:\Tools\CodeReel> npm run codereel -- init --repo "D:\Projects\MyApp"
-PS C:\Tools\CodeReel> npm run codereel -- doctor
-PS C:\Tools\CodeReel> npm run codereel -- build
-```
-
-若要直接分析 CodeReel 本身，也可執行：
-
-```powershell
-npm run codereel -- init --repo "."
-```
-
-這種情況會自動把輸出移到來源 repo 外，避免掃描或覆寫產物。
-
-## 4. 設定 Claude Code
+這一步每台機器只需要做一次，與要分析哪個 repo 無關。
 
 安裝 Claude Code CLI：
 
@@ -81,6 +59,8 @@ claude auth status
 
 桌面版 Claude Code App 與 CLI 的登入狀態是分開的。App 可以正常使用，不代表 CLI 也可以；`claude auth status` 顯示 `loggedIn: true` 但實際呼叫回 `401 OAuth access token has been revoked` 時，重跑一次 `claude auth login` 即可。
 
+分析與課程規劃會呼叫本機的 `claude` 命令，用的是你的 Claude 訂閱額度，不需要 API key，也不會另外計費。下一步的 `init` 會直接把這些設定寫進設定檔，正常情況不需要手動修改：
+
 ```json
 {
   "llm": {
@@ -95,13 +75,27 @@ claude auth status
 }
 ```
 
-分析與課程規劃會呼叫本機的 `claude` 命令，用的是你的 Claude 訂閱額度，不需要 API key，也不會另外計費。`"model": "auto"` 表示交給 Claude Code 目前設定的模型；要固定產出模型時，改成 `opus`、`sonnet` 或完整 model id（例如 `claude-opus-5`）。
+`"model": "auto"` 表示交給 Claude Code 目前設定的模型；要固定產出模型時，改成 `opus`、`sonnet` 或完整 model id（例如 `claude-opus-5`）。
 
 CodeReel 呼叫 CLI 時固定加上 `--tools ""`、`--safe-mode`、`--no-session-persistence`，並在來源 repo 之外的暫存目錄執行：模型只做文字生成，不會讀寫檔案、不載入 CLAUDE.md 與外掛，也不會把來源內容留在 Claude Code 的 session 紀錄。
 
-這一步會把 `llm.maxSourceChars` 範圍內選中的原始碼送到 Anthropic。要維持原始碼不離開本機時，請改用 `llm.provider` 為 `ollama` 的設定；此時 `privacy.requireLocalLlm` 可設回 `true`，`claude-cli` 與 `requireLocalLlm=true` 併用會直接被設定檔驗證擋下。
+這會把 `llm.maxSourceChars` 範圍內選中的原始碼送到 Anthropic。要維持原始碼不離開本機時，請改用 `llm.provider` 為 `ollama` 的設定；此時 `privacy.requireLocalLlm` 可設回 `true`，`claude-cli` 與 `requireLocalLlm=true` 併用會直接被設定檔驗證擋下。
 
-只有 `doctor` 顯示 `llm.available=true` 與 `canBuildDeck=true` 後才執行 `build`。`doctor` 會實際送出一次極小的請求驗證認證是否可用，失敗時會列出修復命令。
+## 4. 建立設定檔
+
+每個要製作教材的來源 repo 各做一次。
+
+```powershell
+npm run codereel -- init --repo "C:\path\to\source-repo"
+```
+
+`--repo` 必須指向要製作教材的來源 repo，可使用絕對或相對路徑。命令仍然在 CodeReel 根目錄執行，不需要切換進來源 repo。例如 CodeReel 位於 `C:\Tools\CodeReel`、來源 repo 位於 `D:\Projects\MyApp`：
+
+```powershell
+PS C:\Tools\CodeReel> npm run codereel -- init --repo "D:\Projects\MyApp"
+```
+
+`init` 會建立完整設定檔並將它設為目前專案，後續命令不需要填設定檔名稱。切換 repo 時重新執行一次 `init` 即可，既有設定不會被覆寫。
 
 ## 5. 產出投影片
 
@@ -110,6 +104,8 @@ CodeReel 呼叫 CLI 時固定加上 `--tools ""`、`--safe-mode`、`--no-session
 ```powershell
 npm run codereel -- doctor
 ```
+
+`doctor` 會實際送出一次極小的請求驗證 Claude Code 認證是否可用。只有顯示 `llm.available=true` 與 `canBuildDeck=true` 後才執行 `build`；失敗時會列出修復命令。
 
 建立課程計畫、PPTX、speaker notes 與逐頁 PNG：
 
@@ -189,7 +185,7 @@ npm run codereel -- run --force
 
 ## 8. 本機示例與測試
 
-固定示例不呼叫本機 LLM 或付費 TTS：
+固定示例不呼叫任何模型或付費 TTS：
 
 ```powershell
 npm run demo
