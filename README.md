@@ -209,6 +209,32 @@ npm run codereel -- run --approve-tts=<報告中的-digest>
 
 digest 是那批內容的雜湊。旁白、voice、endpoint 或格式只要變更，digest 就會變，必須重新確認一次 — 你不可能核准了 A 卻送出 B。未變更的逐頁語音會直接命中快取，不會再次送出。
 
+### 多音字唸錯時
+
+技術旁白很容易踩到「重」：「重排、重跑、重載、重開、重啟」要唸 chóng，但「重點、權重」是 zhòng。同一段話兩種讀音都有，所以不能用 `replacements` 的整體字串替換去修 — 那會把該唸 zhòng 的也一起改掉。
+
+改用 `phoneme`，只有列出來的詞會被指定讀音，其餘同字不受影響：
+
+```json
+"pronunciation": {
+  "phonemeAlphabet": "sapi",
+  "replacements": [
+    { "from": "重排", "phoneme": "chong2 pai2" },
+    { "from": "重跑", "phoneme": "chong2 pao3" },
+    { "from": "重載", "phoneme": "chong2 zai4" },
+    { "from": "重開", "phoneme": "chong2 kai1" },
+    { "from": "重啟", "phoneme": "chong2 qi3" },
+    { "from": "重新", "phoneme": "chong2 xin1" }
+  ]
+}
+```
+
+這類規則只作用在送給 Azure 的 SSML，投影片與字幕上的文字不變，計費字數也不變。長的詞優先比對，所以同時有 `重` 和 `重新載入` 時會選後者。
+
+`phonemeAlphabet` 預設 `sapi`（拼音加聲調數字），可改成 `ipa`。**Azure 對 zh-TW 語音支援哪一種標音法請自行實測**：先只加一條規則跑一次，確認唸對了再補其他詞。SSML 內容改變會讓該頁語音重新合成，未受影響的頁面仍然命中快取。
+
+`intermediate\pronunciation-audit.json` 會列出每條規則實際命中幾次，可以確認規則有沒有生效。
+
 ### 費用
 
 報告預設不會換算金額，只給字元數。要自己估算的話：`字元數 ÷ 1,000,000 × 每百萬字元單價`，單價以 [Azure Speech 定價](https://azure.microsoft.com/pricing/details/cognitive-services/speech-services/)當日的區域牌價為準。

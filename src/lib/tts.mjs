@@ -1,7 +1,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { copyFileAtomic, ensureDir, findCommand, isPathInside, pathExists, readJson, replaceFileAtomic, runProcess, sha256, sha256File, stableStringify, writeJsonAtomic } from './utils.mjs';
-import { escapeSsml, writeSsmlFile } from './narration.mjs';
+import { buildSsml, escapeSsml, phonemeRules, writeSsmlFile } from './narration.mjs';
 
 export function azureEndpoint(config) {
   const endpointName = config.tts.azureEndpointEnv || 'AZURE_SPEECH_ENDPOINT';
@@ -191,6 +191,7 @@ export async function prepareTtsEgress(config, narrations) {
   const billableCharacters = items.reduce((sum, item) => sum + item.billableCharacters, 0);
   const rate = Number(config.tts.ratePerMillionCharacters);
   const endpoint = provider === 'azure' ? azureEndpoint(config) : null;
+  const phonemes = phonemeRules(config.tts.pronunciation);
   const approvalPayload = {
     schemaVersion: 1,
     provider,
@@ -198,6 +199,7 @@ export async function prepareTtsEgress(config, narrations) {
     voice: config.tts.voice,
     rate: config.tts.rate,
     outputFormat: config.tts.outputFormat,
+    phonemes,
     items,
   };
   const approvalDigest = sha256(stableStringify(approvalPayload));
@@ -210,6 +212,7 @@ export async function prepareTtsEgress(config, narrations) {
     rate: config.tts.rate,
     endpoint,
     outputFormat: config.tts.outputFormat,
+    phonemes,
     billableCharacters,
     pricingSnapshot: Number.isFinite(rate) && rate > 0 ? {
       ratePerMillionCharacters: rate,
@@ -257,6 +260,7 @@ export async function synthesizeNarration(config, narrations, { approvedEgressDi
       rate: config.tts.rate,
       outputFormat: config.tts.outputFormat,
       spoken: entry.spoken,
+      ssml: config.tts.provider === 'azure' ? buildSsml(entry.spoken, config) : null,
       piperModel: config.tts.piperModel || null,
       piperModelFingerprint,
       piperConfigFingerprint,

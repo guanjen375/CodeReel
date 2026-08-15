@@ -59,6 +59,7 @@ const defaults = {
     pronunciation: {
       spellAcronyms: true,
       underscoresAsPause: true,
+      phonemeAlphabet: 'sapi',
       replacements: [
         { from: 'aicode', to: 'A I code' },
         { from: 'CodeReel', to: 'Code Reel' },

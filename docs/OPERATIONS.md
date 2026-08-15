@@ -108,6 +108,13 @@ npm run codereel -- run --approve-tts=<報告中的-digest> --force
 - 確認端點監聽 loopback。
 - `model=auto` 會選清單第一個模型；正式使用建議固定模型名稱。
 
+### 旁白唸錯字
+
+- 多音字用 `tts.pronunciation.replacements` 的 `phoneme` 欄位處理，只影響 SSML，不動投影片文字與計費字數。
+- 一般唸法問題（英文縮寫、產品名）用同一個陣列的 `to` 欄位做文字替換。
+- `intermediate\pronunciation-audit.json` 列出每條規則命中的次數；規則寫了卻是 0 次，通常是詞沒有完全一致。
+- 規則改變只會讓受影響的頁面重新合成，其餘仍命中快取。
+
 ### LibreOffice renderer 失敗（macOS／Linux）
 
 - `doctor` 的 `renderer.nextSteps` 會列出缺少的是 LibreOffice 還是 poppler，照著裝即可。

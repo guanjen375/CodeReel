@@ -95,6 +95,11 @@ export function makeSpokenText(display, pronunciation = {}) {
   for (const replacement of pronunciation.replacements || []) {
     const from = String(replacement.from || '');
     if (!from) continue;
+    if (replacement.phoneme) {
+      const matches = spoken.match(new RegExp(escapedRegex(from), 'gu'))?.length || 0;
+      if (matches) audit.push({ rule: from, phoneme: String(replacement.phoneme), matches });
+      continue;
+    }
     const pattern = new RegExp(escapedRegex(from), 'giu');
     const matches = spoken.match(pattern)?.length || 0;
     if (matches) {
@@ -169,8 +174,37 @@ export function escapeSsml(text) {
     .replaceAll("'", '&apos;');
 }
 
+export function phonemeRules(pronunciation = {}) {
+  return (pronunciation.replacements || [])
+    .filter((item) => item?.phoneme && item?.from)
+    .map((item) => ({ from: String(item.from), phoneme: String(item.phoneme) }))
+    .sort((a, b) => b.from.length - a.from.length);
+}
+
+export function buildSsmlBody(spoken, pronunciation = {}) {
+  const rules = phonemeRules(pronunciation);
+  const text = String(spoken);
+  if (rules.length === 0) return escapeSsml(text);
+  const alphabet = escapeSsml(String(pronunciation.phonemeAlphabet || 'sapi'));
+  const lookup = new Map(rules.map((rule) => [rule.from, rule.phoneme]));
+  const pattern = new RegExp(rules.map((rule) => escapedRegex(rule.from)).join('|'), 'gu');
+  let body = '';
+  let index = 0;
+  for (const match of text.matchAll(pattern)) {
+    body += escapeSsml(text.slice(index, match.index));
+    body += `<phoneme alphabet="${alphabet}" ph="${escapeSsml(lookup.get(match[0]))}">${escapeSsml(match[0])}</phoneme>`;
+    index = match.index + match[0].length;
+  }
+  return body + escapeSsml(text.slice(index));
+}
+
+export function buildSsml(spoken, config) {
+  const body = buildSsmlBody(spoken, config.tts.pronunciation);
+  return `<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xml:lang="zh-TW"><voice name="${escapeSsml(config.tts.voice)}"><prosody rate="${escapeSsml(config.tts.rate)}">${body}</prosody></voice></speak>`;
+}
+
 export async function writeSsmlFile(file, spoken, config) {
-  const ssml = `<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xml:lang="zh-TW"><voice name="${escapeSsml(config.tts.voice)}"><prosody rate="${escapeSsml(config.tts.rate)}">${escapeSsml(spoken)}</prosody></voice></speak>`;
+  const ssml = buildSsml(spoken, config);
   await writeTextAtomic(file, `${ssml}\n`);
   return ssml;
 }
