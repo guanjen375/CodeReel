@@ -293,7 +293,9 @@ async function runPipelineUnlocked(config, options = {}) {
           );
           selectedPaths = selection.value.selectedPaths.map((item) => String(item).replaceAll('\\', '/'));
         } catch (error) {
-          console.warn(`! LLM 檔案選擇失敗，改用確定性排序：${error.message}`);
+          console.warn('! 模型未回傳可用檔案清單；已自動改用確定性排序，建置會繼續。');
+          if (process.env.CODEREEL_DEBUG === '1') console.warn(`  詳細原因：${error.message}`);
+          await logEvent(config, { stage: 'plan', status: 'selection-fallback', error: error.message });
           selectedPaths = fallbackSourceSelection(manifest, config.llm.maxSelectedFiles);
         }
       }

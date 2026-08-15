@@ -160,6 +160,8 @@ function addAgenda(slide, pptx, theme, item, fonts) {
 function addSummary(slide, pptx, theme, item, fonts) {
   const c = theme.colors;
   item.bullets.slice(0, 5).forEach((bullet, index) => {
+    const characters = [...String(bullet || '')].length;
+    const fontSize = characters > 72 ? 16 : (characters > 52 ? 18 : 20);
     const y = 1.66 + index * 0.98;
     slide.addShape(pptx.ShapeType.line, { x: 0.78, y: y + 0.76, w: 11.6, h: 0, line: { color: c.line, width: 0.7 } });
     addText(slide, String(index + 1), {
@@ -167,8 +169,8 @@ function addSummary(slide, pptx, theme, item, fonts) {
       fontFace: fonts.code, fontSize: 28, bold: true, color: c.accent,
     });
     addText(slide, bullet, {
-      x: 1.65, y, w: 10.5, h: 0.74,
-      fontFace: fonts.body, fontSize: 20, bold: true, color: c.text, breakLine: true,
+      x: 1.65, y, w: 10.85, h: 0.78,
+      fontFace: fonts.body, fontSize, bold: true, color: c.text, breakLine: true,
     });
   });
 }
