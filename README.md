@@ -53,7 +53,25 @@ npm run codereel -- init --repo "."
 
 在 `codereel.config.json` 選擇一種端點。
 
-### Ollama
+### Ollama（預設）
+
+安裝 Ollama：
+
+```powershell
+winget install --id Ollama.Ollama --exact --accept-package-agreements --accept-source-agreements
+```
+
+重新開啟 PowerShell，下載一個本機模型。快速驗證可用：
+
+```powershell
+ollama pull qwen3:4b-instruct
+```
+
+需要較完整的 repo 分析品質時可改用 `qwen3-coder:30b`；下載內容約 19 GB：
+
+```powershell
+ollama pull qwen3-coder:30b
+```
 
 ```json
 {
@@ -84,6 +102,8 @@ ollama list
 ```
 
 `"model": "auto"` 會讀取端點的模型清單並自動選取，不需要填寫確切模型名稱。`auto` 不會下載模型；端點內必須已存在至少一個模型。
+
+只有 `doctor` 顯示 `llm.available=true` 與 `canBuildDeck=true` 後才執行 `build`。若端點未啟動，`doctor` 會列出修復命令。
 
 ## 5. 產出投影片
 

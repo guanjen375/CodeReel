@@ -14,6 +14,38 @@ function validatedBaseUrl(config) {
   return url.href.replace(/\/$/u, '');
 }
 
+export function llmSetupInstructions(config) {
+  const endpoint = String(config.llm.baseUrl || '未設定');
+  if (config.llm.provider === 'ollama') {
+    return [
+      '安裝 Ollama：winget install --id Ollama.Ollama --exact --accept-package-agreements --accept-source-agreements',
+      '下載快速驗證模型：ollama pull qwen3:4b-instruct',
+      `確認端點：${endpoint}/api/tags`,
+      '重新執行：npm run codereel -- doctor --config .\\codereel.config.json',
+    ];
+  }
+  return [
+    `啟動目前設定的 OpenAI-compatible 服務：${endpoint}`,
+    '或把 llm.provider 改為 ollama、baseUrl 改為 http://127.0.0.1:11434，再安裝並啟動 Ollama。',
+    '重新執行：npm run codereel -- doctor --config .\\codereel.config.json',
+  ];
+}
+
+function localLlmConnectionError(config, cause) {
+  const error = new Error(`無法連線到本機 LLM：${config.llm.baseUrl}\n${llmSetupInstructions(config).map((step) => `- ${step}`).join('\n')}`);
+  error.code = 'LLM_ENDPOINT_UNREACHABLE';
+  error.cause = cause;
+  return error;
+}
+
+async function fetchLocalLlm(url, options, config) {
+  try {
+    return await fetch(url, options);
+  } catch (error) {
+    throw localLlmConnectionError(config, error);
+  }
+}
+
 async function readResponseText(response, maxBytes) {
   const declared = Number(response.headers.get('content-length'));
   if (Number.isFinite(declared) && declared > maxBytes) throw new Error(`LLM 回應超過 ${maxBytes} bytes 上限。`);
@@ -53,12 +85,12 @@ function extractJson(text) {
   return JSON.parse(cleaned.slice(start, end + 1));
 }
 
-async function discoverOpenAiModel(baseUrl, headers, timeoutMs, maxBytes) {
-  const response = await fetch(`${baseUrl.replace(/\/$/u, '')}/models`, {
+async function discoverOpenAiModel(baseUrl, headers, timeoutMs, maxBytes, config) {
+  const response = await fetchLocalLlm(`${baseUrl.replace(/\/$/u, '')}/models`, {
     headers,
     signal: AbortSignal.timeout(timeoutMs),
     redirect: 'error',
-  });
+  }, config);
   if (!response.ok) throw new Error(`無法讀取本機模型清單：HTTP ${response.status}`);
   const payload = JSON.parse(await readResponseText(response, maxBytes));
   const model = payload?.data?.[0]?.id;
@@ -74,9 +106,9 @@ async function callOpenAiCompatible(messages, config) {
     if (key) headers.authorization = `Bearer ${key}`;
   }
   const model = config.llm.model === 'auto'
-    ? await discoverOpenAiModel(baseUrl, headers, config.llm.timeoutMs, config.llm.maxResponseBytes)
+    ? await discoverOpenAiModel(baseUrl, headers, config.llm.timeoutMs, config.llm.maxResponseBytes, config)
     : config.llm.model;
-  const response = await fetch(`${baseUrl}/chat/completions`, {
+  const response = await fetchLocalLlm(`${baseUrl}/chat/completions`, {
     method: 'POST',
     headers,
     body: JSON.stringify({
@@ -87,7 +119,7 @@ async function callOpenAiCompatible(messages, config) {
     }),
     signal: AbortSignal.timeout(config.llm.timeoutMs),
     redirect: 'error',
-  });
+  }, config);
   if (!response.ok) throw new Error(`本機 LLM 回應失敗：HTTP ${response.status}`);
   const payload = JSON.parse(await readResponseText(response, config.llm.maxResponseBytes));
   const content = payload?.choices?.[0]?.message?.content;
@@ -99,12 +131,12 @@ async function callOllama(messages, config) {
   const baseUrl = validatedBaseUrl(config).replace(/\/v1$/u, '');
   let model = config.llm.model;
   if (model === 'auto') {
-    const tags = await fetch(`${baseUrl}/api/tags`, { signal: AbortSignal.timeout(config.llm.timeoutMs), redirect: 'error' });
+    const tags = await fetchLocalLlm(`${baseUrl}/api/tags`, { signal: AbortSignal.timeout(config.llm.timeoutMs), redirect: 'error' }, config);
     if (!tags.ok) throw new Error(`無法讀取 Ollama 模型清單：HTTP ${tags.status}`);
     model = JSON.parse(await readResponseText(tags, config.llm.maxResponseBytes))?.models?.[0]?.name;
     if (!model) throw new Error('Ollama 沒有已安裝模型。');
   }
-  const response = await fetch(`${baseUrl}/api/chat`, {
+  const response = await fetchLocalLlm(`${baseUrl}/api/chat`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({
@@ -116,7 +148,7 @@ async function callOllama(messages, config) {
     }),
     signal: AbortSignal.timeout(config.llm.timeoutMs),
     redirect: 'error',
-  });
+  }, config);
   if (!response.ok) throw new Error(`Ollama 回應失敗：HTTP ${response.status}`);
   const payload = JSON.parse(await readResponseText(response, config.llm.maxResponseBytes));
   return { content: payload?.message?.content, model, usage: { promptEvalCount: payload.prompt_eval_count, evalCount: payload.eval_count } };
@@ -133,9 +165,9 @@ export async function resolveLlmModel(config) {
   if (config.llm.model !== 'auto') return config.llm.model;
   const baseUrl = validatedBaseUrl(config);
   if (config.llm.provider === 'ollama') {
-    const response = await fetch(`${baseUrl.replace(/\/v1$/u, '')}/api/tags`, {
+    const response = await fetchLocalLlm(`${baseUrl.replace(/\/v1$/u, '')}/api/tags`, {
       signal: AbortSignal.timeout(config.llm.timeoutMs), redirect: 'error',
-    });
+    }, config);
     if (!response.ok) throw new Error(`無法讀取 Ollama 模型清單：HTTP ${response.status}`);
     const model = JSON.parse(await readResponseText(response, config.llm.maxResponseBytes))?.models?.[0]?.name;
     if (!model) throw new Error('Ollama 沒有已安裝模型。');
@@ -143,7 +175,7 @@ export async function resolveLlmModel(config) {
   }
   const headers = {};
   if (config.llm.apiKeyEnv && process.env[config.llm.apiKeyEnv]) headers.authorization = `Bearer ${process.env[config.llm.apiKeyEnv]}`;
-  return await discoverOpenAiModel(baseUrl, headers, config.llm.timeoutMs, config.llm.maxResponseBytes);
+  return await discoverOpenAiModel(baseUrl, headers, config.llm.timeoutMs, config.llm.maxResponseBytes, config);
 }
 
 export async function requestJson(messages, config, validate = null) {

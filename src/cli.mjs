@@ -45,7 +45,12 @@ async function main() {
   if (command === 'doctor') {
     const report = await runDoctor(config);
     console.log(JSON.stringify(report, null, 2));
-    if (!report.canBuildDeck) process.exitCode = 2;
+    if (!report.canBuildDeck) {
+      if (report.llm?.available === false && report.llm.nextSteps?.length) {
+        console.error(`\n本機 LLM 尚未就緒：\n${report.llm.nextSteps.map((step) => `- ${step}`).join('\n')}`);
+      }
+      process.exitCode = 2;
+    }
     return;
   }
   if (command === 'status') {

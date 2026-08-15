@@ -226,6 +226,15 @@ async function acquireRunLock(config, target) {
 async function runPipelineUnlocked(config, options = {}) {
   const { target = 'run', force = false, approvedEgressDigest = '', overwriteDeckEdits = false } = options;
   const state = await new StateStore(config.paths.state).load();
+  let resolvedModel;
+  try {
+    resolvedModel = await resolveLlmModel(config);
+  } catch (error) {
+    const cachedPlan = await readJson(config.paths.coursePlan).catch(() => null);
+    if (!cachedPlan?.generation?.resolvedModel) throw error;
+    resolvedModel = cachedPlan.generation.resolvedModel;
+    console.warn(`! 無法重新查詢本機模型，暫用先前記錄：${resolvedModel}`);
+  }
 
   const scanCodeHash = await implementationHash(['repo-scan.mjs', 'utils.mjs', 'config.mjs']);
   const scanFingerprint = stageFingerprint('scan', { repoPath: config.repoPath, scan: config.scan, scanCodeHash });
@@ -248,15 +257,6 @@ async function runPipelineUnlocked(config, options = {}) {
     limits: manifest.limits,
   }));
   const fixturePlanHash = config.llm.provider === 'fixture' ? await sha256File(config.llm.fixturePlan) : null;
-  let resolvedModel;
-  try {
-    resolvedModel = await resolveLlmModel(config);
-  } catch (error) {
-    const cachedPlan = await readJson(config.paths.coursePlan).catch(() => null);
-    if (!cachedPlan?.generation?.resolvedModel) throw error;
-    resolvedModel = cachedPlan.generation.resolvedModel;
-    console.warn(`! 無法重新查詢本機模型，暫用先前記錄：${resolvedModel}`);
-  }
   const generationConfig = config.llm.provider === 'fixture'
     ? config
     : { ...config, llm: { ...config.llm, model: resolvedModel } };

@@ -1,6 +1,6 @@
 import fs from 'node:fs/promises';
 import { checkPowerPoint } from './render.mjs';
-import { assertLlmPrivacy } from './llm.mjs';
+import { assertLlmPrivacy, llmSetupInstructions } from './llm.mjs';
 import { findCommand, isLoopbackUrl, runProcess } from './utils.mjs';
 import { azureEndpoint } from './tts.mjs';
 
@@ -32,7 +32,15 @@ async function llmStatus(config) {
     const modelFound = Boolean(selected && models.includes(selected));
     return { available: modelFound, provider: config.llm.provider, local, endpoint: config.llm.baseUrl, status: response.status, selectedModel: selected || null, modelFound };
   } catch (error) {
-    return { available: false, provider: config.llm.provider, local, endpoint: config.llm.baseUrl, error: error.message };
+    return {
+      available: false,
+      provider: config.llm.provider,
+      local,
+      endpoint: config.llm.baseUrl,
+      error: `無法連線到本機 LLM 端點：${config.llm.baseUrl}`,
+      cause: error.message,
+      nextSteps: llmSetupInstructions(config),
+    };
   }
 }
 

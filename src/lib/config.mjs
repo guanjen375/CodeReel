@@ -13,8 +13,8 @@ const defaults = {
     purpose: '快速完成專案的安裝、啟動、驗證與第一個實際操作',
   },
   llm: {
-    provider: 'openai-compatible',
-    baseUrl: 'http://127.0.0.1:8080/v1',
+    provider: 'ollama',
+    baseUrl: 'http://127.0.0.1:11434',
     model: 'auto',
     apiKeyEnv: '',
     temperature: 0.2,
