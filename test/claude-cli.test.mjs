@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 import { initializeConfig, loadConfig } from '../src/lib/config.mjs';
 import {
   assertLlmPrivacy, claudeCliArgs, claudeCliContent, claudeCliModel, claudeCliPrompt,
-  claudeShimTargets, llmSetupInstructions, parseClaudeCliEnvelope, resolveLlmModel,
+  claudeShimTargets, llmSetupInstructions, modelMatchesRequest, parseClaudeCliEnvelope, resolveLlmModel,
 } from '../src/lib/llm.mjs';
 import { readJson, writeJsonAtomic } from '../src/lib/utils.mjs';
 
@@ -153,6 +153,18 @@ test('claude-cli 搭配 requireLocalLlm=true 會直接拒絕，不會靜默送�
   await writeJsonAtomic(destination, config);
 
   await assert.rejects(() => loadConfig(destination), /requireLocalLlm=true/u);
+});
+
+test('指定模型被靜默換掉時要判定為不相符', () => {
+  assert.equal(modelMatchesRequest('opus', 'claude-opus-5'), true);
+  assert.equal(modelMatchesRequest('sonnet', 'claude-sonnet-5[1m]'), true);
+  assert.equal(modelMatchesRequest('haiku', 'claude-haiku-4-5-20251001'), true);
+  assert.equal(modelMatchesRequest('claude-opus-5', 'claude-opus-5'), true);
+  assert.equal(modelMatchesRequest('sonnet[1m]', 'claude-sonnet-5[1m]'), true);
+  assert.equal(modelMatchesRequest('auto', 'claude-opus-5[1m]'), true);
+  assert.equal(modelMatchesRequest('fable', 'claude-opus-5'), false);
+  assert.equal(modelMatchesRequest('opusplan', 'claude-sonnet-5'), false);
+  assert.equal(modelMatchesRequest('opus', ''), false);
 });
 
 test('Windows 批次檔 shim 會解析回真正的執行檔', () => {

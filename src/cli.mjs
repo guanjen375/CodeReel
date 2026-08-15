@@ -1,25 +1,95 @@
 #!/usr/bin/env node
 import path from 'node:path';
+import readline from 'node:readline/promises';
 import { fileURLToPath } from 'node:url';
 import { initializeConfig, loadConfig, resolveConfigPath, setActiveConfig } from './lib/config.mjs';
 import { runDoctor } from './lib/doctor.mjs';
+import { probeClaudeModels } from './lib/llm.mjs';
 import { readPipelineStatus, runPipeline, withPipelineLock } from './lib/pipeline.mjs';
-import { parseCliArgs } from './lib/utils.mjs';
+import { parseCliArgs, readJson, writeJsonAtomic } from './lib/utils.mjs';
 import { runQa } from './lib/qa.mjs';
 
 const args = parseCliArgs(process.argv.slice(2));
 const command = args._[0] || 'help';
 const root = fileURLToPath(new URL('../', import.meta.url));
 
+function interactive() {
+  return Boolean(process.stdin.isTTY && process.stdout.isTTY) && !args['no-prompt'];
+}
+
+async function ask(question, fallback = '') {
+  const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+  try {
+    return (await rl.question(question)).trim() || fallback;
+  } finally {
+    rl.close();
+  }
+}
+
+async function patchConfigFile(configPath, patch) {
+  const stored = await readJson(configPath);
+  await writeJsonAtomic(configPath, patch(stored));
+}
+
+async function applyModel(configPath, model, previous, resolved = '') {
+  if (model === previous) return model;
+  await patchConfigFile(configPath, (stored) => ({ ...stored, llm: { ...stored.llm, model } }));
+  console.log(`已設定 llm.model = ${model}${resolved ? `（${resolved}）` : ''}`);
+  return model;
+}
+
+async function chooseModel(config, configPath) {
+  if (args.model && args.model !== true) {
+    return await applyModel(configPath, String(args.model).trim(), config.llm.model);
+  }
+  if (!interactive()) return null;
+  console.log('\n正在確認這個帳號可以使用哪些模型…');
+  const probed = await probeClaudeModels(config);
+  const usable = probed.filter((item) => item.available);
+  if (usable.length === 0) {
+    console.log('目前無法確認可用模型，先沿用 llm.model。稍後可執行 claude auth login 再重跑 init。');
+    return null;
+  }
+  console.log('\n分析與課程規劃要用哪個模型？箭頭右邊是實際會計費的模型。');
+  usable.forEach((item, index) => {
+    const current = item.value === config.llm.model ? '（目前）' : '';
+    const mismatch = item.matchesRequest ? '' : '［實際換成別的模型］';
+    console.log(`  ${index + 1}) ${item.value.padEnd(7)} → ${String(item.resolvedModel).padEnd(26)} ${item.summary}${mismatch}${current}`);
+  });
+  for (const item of probed.filter((entry) => !entry.available)) {
+    console.log(`  -  ${item.value.padEnd(7)} 無法使用`);
+  }
+  const answer = await ask(`\n輸入編號（直接按 Enter 沿用 ${config.llm.model}）：`);
+  const picked = usable[Number(answer) - 1];
+  if (!picked) return null;
+  return await applyModel(configPath, picked.value, config.llm.model, picked.resolvedModel);
+}
+
+async function resolvePurpose(config) {
+  if (args.purpose && args.purpose !== true) {
+    const purpose = String(args.purpose).trim();
+    if (purpose) return purpose;
+  }
+  if (!interactive()) return config.project.purpose;
+  console.log('\n這份教材要教什麼？方向會決定選哪些檔案與每一頁的內容。');
+  console.log(`目前設定：${config.project.purpose}`);
+  const purpose = await ask('輸入新的課程目的（直接按 Enter 沿用）：', config.project.purpose);
+  if (purpose !== config.project.purpose) {
+    await patchConfigFile(config.configPath, (stored) => ({ ...stored, project: { ...stored.project, purpose } }));
+    console.log('已更新設定檔的 project.purpose。');
+  }
+  return purpose;
+}
+
 function help() {
   console.log(`CodeReel 0.1.0
 
 用法：
-  codereel init --repo <repo路徑> [--config codereel.config.json]
+  codereel init --repo <repo路徑> [--config codereel.config.json] [--model <auto|opus|sonnet|haiku>]
   codereel doctor [--config <設定檔>]
-  codereel analyze [--config <設定檔>] [--force]
-  codereel build [--config <設定檔>] [--force] [--overwrite-deck-edits]
-  codereel run [--config <設定檔>] [--approve-tts=<egress digest>] [--force] [--overwrite-deck-edits]
+  codereel analyze [--config <設定檔>] [--purpose "<課程目的>"] [--force]
+  codereel build [--config <設定檔>] [--purpose "<課程目的>"] [--force] [--overwrite-deck-edits]
+  codereel run [--config <設定檔>] [--purpose "<課程目的>"] [--approve-tts=<egress digest>] [--force] [--overwrite-deck-edits]
   codereel qa [--config <設定檔>]
   codereel status [--config <設定檔>]
 
@@ -29,6 +99,8 @@ function help() {
   run      再建立逐頁音訊、SRT、章節與 MP4
 
 省略 --config 時，使用最近一次 init 選定的設定檔。
+init 會實際測試各模型是否可用再讓你挑；analyze／build／run 會先確認課程目的。
+加上 --no-prompt 可跳過所有互動詢問，直接沿用設定檔的值。
 Azure 正式配音只有在未命中快取且傳入與外送預覽完全相符的 --approve-tts digest 時才會呼叫。`);
 }
 
@@ -39,11 +111,11 @@ async function main() {
     const destination = hasExplicitConfig ? path.resolve(String(args.config)) : undefined;
     const sourceTemplate = path.join(root, 'codereel.config.example.json');
     const result = await initializeConfig({ sourceTemplate, destination, repoPath: args.repo, autoName: !hasExplicitConfig });
-    await loadConfig(result.path);
+    const created = await loadConfig(result.path);
     await setActiveConfig(result.path);
     console.log(`${result.created ? '已建立' : '已沿用'}設定檔：${result.path}`);
     console.log('已設為目前專案。');
-    console.log('\n下一步：\nnpm run codereel -- doctor\nnpm run codereel -- build');
+    if (created.llm.provider === 'claude-cli') await chooseModel(created, result.path);
     return;
   }
   const configPath = await resolveConfigPath(args.config);
@@ -76,6 +148,7 @@ async function main() {
     help();
     throw new Error(`未知命令：${command}`);
   }
+  config.project.purpose = await resolvePurpose(config);
   const result = await runPipeline(config, {
     target: command,
     force: Boolean(args.force),

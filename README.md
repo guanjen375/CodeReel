@@ -75,26 +75,45 @@ npm run codereel -- init --repo "C:\path\to\source-repo"
 
 `--repo` 必須指向要製作教材的來源 repo，可使用絕對或相對路徑。命令仍然在 CodeReel 根目錄執行，不需要切換進來源 repo。例如 CodeReel 位於 `C:\Tools\CodeReel`、來源 repo 位於 `D:\Projects\MyApp`：
 
+`init` 會先實際測試你的帳號能用哪些模型，再讓你挑：
+
 ```powershell
 PS C:\Tools\CodeReel> npm run codereel -- init --repo "D:\Projects\MyApp"
 已建立設定檔：C:\Tools\CodeReel\codereel.config.json
 已設為目前專案。
 
-下一步：
-npm run codereel -- doctor
-npm run codereel -- build
+正在確認這個帳號可以使用哪些模型…
+
+分析與課程規劃要用哪個模型？箭頭右邊是實際會計費的模型。
+  1) auto    → claude-opus-5[1m]           跟隨 Claude Code 目前設定；模型可能隨時改變（目前）
+  2) opus    → claude-opus-5               分析最完整，適合正式教材
+  3) sonnet  → claude-sonnet-5             品質與速度平衡
+  4) haiku   → claude-haiku-4-5-20251001   最快，適合先跑通整條流程
+  5) fable   → claude-opus-5               若帳號沒有開通會靜默改用其他模型［實際換成別的模型］
+
+輸入編號（直接按 Enter 沿用 auto）：
 ```
 
-`init` 印出的就是設定檔位置，之後要調整任何設定都是改這個檔案。它同時會被設為目前專案，因此後續命令不需要填設定檔名稱。切換 repo 時重新執行一次 `init` 即可：既有設定不會被覆寫，CodeReel 會另外建立以 repo 命名的設定檔（例如 `MyApp.config.json`）。
+指定的模型不存在時，Claude Code 不會報錯，而是靜默改用別的模型。所以清單右邊列的是**實際回報的計費模型**，對不上時會標示`［實際換成別的模型］`。上面的 `fable` 就是這種情況。
 
-第 3 步的 Claude Code 設定已經寫在這個檔案裡，預設值可直接使用：
+正式產出教材建議選 `opus`：`auto` 會跟著 Claude Code 當下的設定走，每次 `build` 可能換到不同模型，而課程計畫的快取判斷看不出這種變化。
+
+要跳過詢問時用 `--model`，適合腳本或重跑：
+
+```powershell
+npm run codereel -- init --repo "D:\Projects\MyApp" --model opus
+```
+
+設定檔位置就是 `init` 印出的那一行，之後要調整任何設定都是改這個檔案。它同時會被設為目前專案，因此後續命令不需要填設定檔名稱。切換 repo 時重新執行一次 `init` 即可：既有設定不會被覆寫，CodeReel 會另外建立以 repo 命名的設定檔（例如 `MyApp.config.json`）。
+
+第 3 步的 Claude Code 設定也已經寫在這個檔案裡：
 
 ```json
 {
   "llm": {
     "provider": "claude-cli",
     "claudeExecutable": "claude",
-    "model": "auto",
+    "model": "opus",
     "maxSourceChars": 120000
   },
   "privacy": {
@@ -103,7 +122,7 @@ npm run codereel -- build
 }
 ```
 
-`"model": "auto"` 表示交給 Claude Code 目前設定的模型。要固定產出模型時，把 `auto` 改成 `opus`、`sonnet` 或完整 model id（例如 `claude-opus-5`）；正式產出教材建議固定模型，否則每次 `build` 可能換到不同模型。`claudeExecutable` 只有在 `claude` 不在 PATH、或 Windows 上只找得到 `.cmd` 時才需要改成 `claude.exe` 的完整路徑。
+`claudeExecutable` 只有在 `claude` 不在 PATH、或 Windows 上只找得到 `.cmd` 時，才需要改成 `claude.exe` 的完整路徑。
 
 ## 5. 產出投影片
 
@@ -121,7 +140,25 @@ npm run codereel -- doctor
 npm run codereel -- build
 ```
 
-`→ 建立證據與課程` 會呼叫 Claude Code CLI，期間可能數分鐘沒有進入下一階段；命令會每 30 秒顯示已等待時間，完成後自動繼續產生 PPTX 與逐頁圖片。
+`build` 會先問這份教材要教什麼：
+
+```text
+這份教材要教什麼？方向會決定選哪些檔案與每一頁的內容。
+目前設定：快速完成專案的安裝、啟動、驗證與第一個實際操作
+輸入新的課程目的（直接按 Enter 沿用）：
+```
+
+同一個 repo 可以做出完全不同的教材 — 「快速上手」和「理解檢索架構」會選到不同檔案、切出不同章節。這個目的是模型取捨內容的最高優先依據：與它無關的內容即使證據充足也會被捨棄。輸入的內容會寫回設定檔成為下次的預設值。
+
+要跳過詢問時用 `--purpose`，或用 `--no-prompt` 直接沿用設定檔的值：
+
+```powershell
+npm run codereel -- build --purpose "理解檢索與重排流程，能自行替換 embedding 模型"
+```
+
+`--purpose` 只影響這一次執行，不會寫回設定檔；要換掉長期預設值請用互動詢問，或直接改設定檔的 `project.purpose`。
+
+`→ 建立證據與課程` 會呼叫 Claude Code CLI，期間可能數分鐘沒有進入下一階段；命令會每 30 秒顯示已等待時間，完成後自動繼續產生 PPTX 與逐頁圖片。改變課程目的會讓課程計畫重新產生，這一段要重跑。
 
 主要檔案位於：
 

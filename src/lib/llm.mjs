@@ -394,6 +394,47 @@ async function claudeCliAuthStatus(executable) {
   }
 }
 
+export const claudeModelChoices = [
+  { value: 'auto', summary: '跟隨 Claude Code 目前設定；模型可能隨時改變' },
+  { value: 'opus', summary: '分析最完整，適合正式教材' },
+  { value: 'sonnet', summary: '品質與速度平衡' },
+  { value: 'haiku', summary: '最快，適合先跑通整條流程' },
+  { value: 'fable', summary: '若帳號沒有開通會靜默改用其他模型' },
+];
+
+export function modelMatchesRequest(requested, resolved) {
+  if (!requested || requested === 'auto') return true;
+  const wanted = String(requested).toLowerCase().replace(/\[[^\]]*\]/gu, '');
+  const actual = String(resolved || '').toLowerCase();
+  const family = wanted.replace(/^claude-/u, '').split('-')[0];
+  return Boolean(family) && actual.includes(family);
+}
+
+async function claudeProbe(config, model) {
+  const probeConfig = {
+    ...config,
+    llm: { ...config.llm, model, timeoutMs: Math.min(config.llm.timeoutMs, 120000) },
+  };
+  return await callClaudeCli([
+    { role: 'system', content: '你是連線檢查回應器。只輸出 ok。' },
+    { role: 'user', content: 'ok' },
+  ], probeConfig);
+}
+
+export async function probeClaudeModels(config, choices = claudeModelChoices) {
+  return await Promise.all(choices.map(async (choice) => {
+    try {
+      const probe = await claudeProbe(config, choice.value);
+      return {
+        ...choice, available: true, resolvedModel: probe.model,
+        matchesRequest: modelMatchesRequest(choice.value, probe.model),
+      };
+    } catch (error) {
+      return { ...choice, available: false, error: error.message };
+    }
+  }));
+}
+
 export async function checkClaudeCli(config) {
   const requested = claudeExecutableName(config);
   let executable = null;
@@ -419,12 +460,8 @@ export async function checkClaudeCli(config) {
     loggedIn: auth.loggedIn, authMethod: auth.authMethod, subscriptionType: auth.subscriptionType,
     selectedModel: config.llm.model,
   };
-  const probeConfig = { ...config, llm: { ...config.llm, timeoutMs: Math.min(config.llm.timeoutMs, 120000) } };
   try {
-    const probe = await callClaudeCli([
-      { role: 'system', content: '你是連線檢查回應器。只輸出 JSON。' },
-      { role: 'user', content: '{"task":"回覆 {\\"ok\\": true}"}' },
-    ], probeConfig, { type: 'object', additionalProperties: false, required: ['ok'], properties: { ok: { type: 'boolean' } } });
+    const probe = await claudeProbe(config, config.llm.model);
     status.available = true;
     status.probedModel = probe.model;
   } catch (error) {
