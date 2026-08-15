@@ -1,6 +1,6 @@
 import fs from 'node:fs/promises';
 import { checkPowerPoint } from './render.mjs';
-import { assertLlmPrivacy, llmSetupInstructions } from './llm.mjs';
+import { assertLlmPrivacy, checkClaudeCli, llmSetupInstructions } from './llm.mjs';
 import { findCommand, isLoopbackUrl, runProcess } from './utils.mjs';
 import { azureEndpoint } from './tts.mjs';
 
@@ -13,6 +13,7 @@ async function commandVersion(name, args = ['-version']) {
 
 async function llmStatus(config) {
   if (config.llm.provider === 'fixture') return { available: true, provider: 'fixture', local: true };
+  if (config.llm.provider === 'claude-cli') return await checkClaudeCli(config);
   const local = isLoopbackUrl(config.llm.baseUrl);
   const url = config.llm.provider === 'ollama'
     ? `${config.llm.baseUrl.replace(/\/$/u, '').replace(/\/v1$/u, '')}/api/tags`
@@ -110,7 +111,11 @@ export async function runDoctor(config) {
     powerPoint,
     llm,
     tts,
-    privacy: { requireLocalLlm: config.privacy.requireLocalLlm, llmEndpointIsLocal: llm.local !== false },
+    privacy: {
+      requireLocalLlm: config.privacy.requireLocalLlm,
+      llmEndpointIsLocal: llm.local !== false,
+      sourceCodeLeavesMachine: llm.local === false,
+    },
   };
   report.canBuildDeck = report.node.available && report.repo.available && powerPoint.available && llm.available;
   report.canBuildVideo = report.canBuildDeck && ffmpeg.available && ffprobe.available && tts.available && config.tts.provider !== 'none';

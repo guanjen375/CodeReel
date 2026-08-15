@@ -164,6 +164,7 @@ export async function runProcess(command, args = [], options = {}) {
     echo = false,
     maxOutputChars = 2_000_000,
     timeoutMs = 0,
+    excludeEnv = [],
   } = options;
   return await new Promise((resolve, reject) => {
     const inheritedEnv = {};
@@ -172,8 +173,9 @@ export async function runProcess(command, args = [], options = {}) {
       'AZURE_SPEECH_ENDPOINT', 'AZURE_SPEECH_REGION', 'AWS_ACCESS_KEY_ID', 'AWS_SECRET_ACCESS_KEY',
       'GITHUB_TOKEN', 'GH_TOKEN', 'NPM_TOKEN', 'OPENAI_API_KEY', 'SSH_AUTH_SOCK',
     ]);
+    const excludedNames = new Set(excludeEnv.map((name) => String(name).toUpperCase()));
     for (const [key, value] of Object.entries(process.env)) {
-      if (blockedNames.has(key.toUpperCase()) || secretName.test(key)) continue;
+      if (blockedNames.has(key.toUpperCase()) || excludedNames.has(key.toUpperCase()) || secretName.test(key)) continue;
       inheritedEnv[key] = value;
     }
     const child = spawn(command, args, {

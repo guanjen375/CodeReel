@@ -8,7 +8,7 @@
 - Node.js 20 或更新版本
 - Microsoft PowerPoint 桌面版
 - FFmpeg 與 ffprobe，且可從 PowerShell 直接執行
-- 已啟動的 Ollama 本機服務
+- Claude Code CLI，且已用 Claude 訂閱帳號登入
 - 正式影片配音：Azure Speech 付費方案與預建 `zh-TW` 語音
 
 先確認命令可執行：
@@ -59,47 +59,49 @@ npm run codereel -- init --repo "."
 
 這種情況會自動把輸出移到來源 repo 外，避免掃描或覆寫產物。
 
-## 4. 設定 Ollama
+## 4. 設定 Claude Code
 
-安裝 Ollama：
-
-```powershell
-winget install --id Ollama.Ollama --exact --accept-package-agreements --accept-source-agreements
-```
-
-重新開啟 PowerShell，下載一個本機模型。快速驗證可用：
+安裝 Claude Code CLI：
 
 ```powershell
-ollama pull qwen3:4b-instruct
+npm install -g @anthropic-ai/claude-code
 ```
 
-需要較完整的 repo 分析品質時可改用 `qwen3-coder:30b`；下載內容約 19 GB：
+用 Claude 訂閱帳號登入，會開啟瀏覽器完成授權：
 
 ```powershell
-ollama pull qwen3-coder:30b
+claude auth login
 ```
+
+確認登入狀態，`loggedIn` 必須是 `true`：
+
+```powershell
+claude auth status
+```
+
+桌面版 Claude Code App 與 CLI 的登入狀態是分開的。App 可以正常使用，不代表 CLI 也可以；`claude auth status` 顯示 `loggedIn: true` 但實際呼叫回 `401 OAuth access token has been revoked` 時，重跑一次 `claude auth login` 即可。
 
 ```json
 {
   "llm": {
-    "provider": "ollama",
-    "baseUrl": "http://127.0.0.1:11434",
+    "provider": "claude-cli",
+    "claudeExecutable": "claude",
     "model": "auto",
-    "contextWindow": 32768,
-    "maxSourceChars": 32000
+    "maxSourceChars": 120000
+  },
+  "privacy": {
+    "requireLocalLlm": false
   }
 }
 ```
 
-若 Ollama 尚未啟動，另開一個 PowerShell 執行 `ollama serve` 並保持執行。回到專案視窗確認至少有一個已安裝模型：
+分析與課程規劃會呼叫本機的 `claude` 命令，用的是你的 Claude 訂閱額度，不需要 API key，也不會另外計費。`"model": "auto"` 表示交給 Claude Code 目前設定的模型；要固定產出模型時，改成 `opus`、`sonnet` 或完整 model id（例如 `claude-opus-5`）。
 
-```powershell
-ollama list
-```
+CodeReel 呼叫 CLI 時固定加上 `--tools ""`、`--safe-mode`、`--no-session-persistence`，並在來源 repo 之外的暫存目錄執行：模型只做文字生成，不會讀寫檔案、不載入 CLAUDE.md 與外掛，也不會把來源內容留在 Claude Code 的 session 紀錄。
 
-`"model": "auto"` 會從 `ollama list` 的已安裝模型中選取第一個模型，不會自動下載。需要固定產出模型時，將設定檔中的 `auto` 改成 `ollama list` 顯示的完整名稱。
+這一步會把 `llm.maxSourceChars` 範圍內選中的原始碼送到 Anthropic。要維持原始碼不離開本機時，請改用 `llm.provider` 為 `ollama` 的設定；此時 `privacy.requireLocalLlm` 可設回 `true`，`claude-cli` 與 `requireLocalLlm=true` 併用會直接被設定檔驗證擋下。
 
-只有 `doctor` 顯示 `llm.available=true` 與 `canBuildDeck=true` 後才執行 `build`。若端點未啟動，`doctor` 會列出修復命令。
+只有 `doctor` 顯示 `llm.available=true` 與 `canBuildDeck=true` 後才執行 `build`。`doctor` 會實際送出一次極小的請求驗證認證是否可用，失敗時會列出修復命令。
 
 ## 5. 產出投影片
 
@@ -115,7 +117,7 @@ npm run codereel -- doctor
 npm run codereel -- build
 ```
 
-`→ 建立證據與課程` 會呼叫本機模型，期間可能數分鐘沒有進入下一階段；命令會每 30 秒顯示已等待時間，完成後自動繼續產生 PPTX 與逐頁圖片。
+`→ 建立證據與課程` 會呼叫 Claude Code CLI，期間可能數分鐘沒有進入下一階段；命令會每 30 秒顯示已等待時間，完成後自動繼續產生 PPTX 與逐頁圖片。
 
 主要檔案位於：
 

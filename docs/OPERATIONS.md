@@ -8,7 +8,7 @@
 npm run codereel -- doctor
 ```
 
-必要通過：Node.js、repo 路徑、PowerPoint、FFmpeg／ffprobe、本機 LLM。TTS 只有在要產生影片時才是必要項目。
+必要通過：Node.js、repo 路徑、PowerPoint、FFmpeg／ffprobe、分析模型（預設為已登入的 Claude Code CLI）。TTS 只有在要產生影片時才是必要項目。
 
 ## 2. Analyze
 
@@ -95,7 +95,14 @@ npm run codereel -- run --approve-tts=<報告中的-digest> --force
 
 ## 常見問題
 
-### LLM 連不上
+### Claude Code CLI 連不上
+
+- 先執行 `claude auth status`，`loggedIn` 必須是 `true`。
+- 出現 `401 OAuth access token has been revoked` 時執行 `claude auth login`；桌面版 App 的登入狀態與 CLI 分開，App 可用不代表 CLI 可用。
+- `429` 或用量上限訊息代表訂閱額度已用完，稍後再執行，或先用 `analyze` 分段推進。
+- `model=auto` 表示交給 Claude Code 目前設定的模型；正式使用建議在 `llm.model` 固定 model id。
+
+### 本機 LLM 連不上（llm.provider=ollama）
 
 - 先直接開啟 `llm.baseUrl` 對應的 `/models` 或 Ollama `/api/tags`。
 - 確認端點監聽 loopback。

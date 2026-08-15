@@ -18,7 +18,7 @@ RepoManifest
 ## 模組
 
 - `repo-scan.mjs`：唯讀掃描、Git metadata、排除敏感檔、SHA-256。
-- `llm.mjs`：OpenAI-compatible、Ollama 與 fixture adapter；可解析並重試結構化 JSON。
+- `llm.mjs`：Claude Code CLI、OpenAI-compatible、Ollama 與 fixture adapter；可解析並重試結構化 JSON。
 - `plan.mjs`：頁數、禁詞、證據行號、逐字 code／command 驗證。
 - `deck.mjs`：固定 16:9 可編輯 PowerPoint layout 與 speaker notes。
 - `narration.mjs`：從 PPTX ZIP 關聯實際抽取 notes，移除來源區塊並建立發音稿。
@@ -31,12 +31,13 @@ RepoManifest
 ## 隱私邊界
 
 ```text
-repo 原文 ──只到──> loopback LLM
+repo 原文 ──預設──> Claude Code CLI（Anthropic）
+repo 原文 ──可選──> loopback LLM（llm.provider=ollama）
 核准後旁白 ──可選──> Azure Speech
 PPTX/PNG/字幕/證據 ──不送──> Azure Speech
 ```
 
-`privacy.requireLocalLlm=true` 時，只接受 `localhost`、`127.0.0.1` 與 loopback IPv6。repo 裡的內容視為不可信資料；prompt 明確禁止遵循 README 或程式碼內的模型指令。
+預設的 `llm.provider=claude-cli` 會把選中的原始碼送到 Anthropic，因此 `privacy.requireLocalLlm` 預設為 `false`；兩者併用會在載入設定時失敗。改用 `ollama` 並把 `requireLocalLlm` 設為 `true` 時，只接受 `localhost`、`127.0.0.1` 與 loopback IPv6。repo 裡的內容一律視為不可信資料；prompt 明確禁止遵循 README 或程式碼內的模型指令，呼叫 Claude Code CLI 時另以 `--tools ""` 與 `--safe-mode` 移除工具與自訂設定。
 
 ## Fingerprint 與失效範圍
 

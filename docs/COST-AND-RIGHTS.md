@@ -2,7 +2,10 @@
 
 ## 預設成本邊界
 
-CodeReel 的 repo 掃描、內容規劃、PPTX、PNG、字幕、影片合成與 QA 均可在本機完成。預設唯一會把資料送出本機且可能計量的環節是正式 TTS，而且只送核准後的旁白。
+CodeReel 的 repo 掃描、PPTX、PNG、字幕、影片合成與 QA 均在本機完成。會把資料送出本機的環節有兩個：
+
+1. 內容規劃（預設 `llm.provider=claude-cli`）：把選中的原始碼送到 Anthropic，用的是本機 Claude Code CLI 已登入的 Claude 訂閱額度，不另外計費，也不需要 API key。訂閱有用量上限，額度用完時 CodeReel 會回報 `CLAUDE_CLI_RATE_LIMIT` 並停止，不會改用付費 API。要讓原始碼不離開本機時，改用 `llm.provider=ollama`。
+2. 正式 TTS：只送核准後的旁白，而且是唯一按量計價的環節。
 
 不把單價硬編在程式裡。Azure Speech 定價按字元計算，實際價格會依區域、合約、幣別與日期變動；請把當日單價 snapshot 寫入設定，CodeReel 才會顯示估算。來源：[Azure Speech 定價](https://azure.microsoft.com/en-us/pricing/details/speech/)。
 

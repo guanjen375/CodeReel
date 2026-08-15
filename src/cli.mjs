@@ -57,7 +57,8 @@ async function main() {
     console.log(JSON.stringify(report, null, 2));
     if (!report.canBuildDeck) {
       if (report.llm?.available === false && report.llm.nextSteps?.length) {
-        console.error(`\n本機 LLM 尚未就緒：\n${report.llm.nextSteps.map((step) => `- ${step}`).join('\n')}`);
+        const label = report.llm.provider === 'claude-cli' ? 'Claude Code CLI 尚未就緒' : '本機 LLM 尚未就緒';
+        console.error(`\n${label}：\n${report.llm.nextSteps.map((step) => `- ${step}`).join('\n')}`);
       }
       process.exitCode = 2;
     }

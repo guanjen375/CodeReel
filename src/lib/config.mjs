@@ -15,7 +15,8 @@ const defaults = {
     purpose: '快速完成專案的安裝、啟動、驗證與第一個實際操作',
   },
   llm: {
-    provider: 'ollama',
+    provider: 'claude-cli',
+    claudeExecutable: 'claude',
     baseUrl: 'http://127.0.0.1:11434',
     model: 'auto',
     apiKeyEnv: '',
@@ -23,7 +24,7 @@ const defaults = {
     timeoutMs: 600000,
     contextWindow: 32768,
     maxResponseBytes: 4194304,
-    maxSourceChars: 32000,
+    maxSourceChars: 120000,
     maxSelectedFiles: 28,
   },
   slides: {
@@ -99,7 +100,7 @@ const defaults = {
       'credentials.json', 'service-account.json',
     ],
   },
-  privacy: { requireLocalLlm: true, sendOnlyNarrationToTts: true },
+  privacy: { requireLocalLlm: false, sendOnlyNarrationToTts: true },
 };
 
 function mergeDeep(base, override) {
@@ -194,8 +195,11 @@ function validateConfig(config) {
   if (isPathInside(config.repoPath, config.cacheRoot) || isPathInside(config.cacheRoot, config.repoPath)) {
     throw new Error('來源 repo 與快取資料夾不可互相包含；請把 outputRoot 設在來源 repo 外。');
   }
-  if (!['openai-compatible', 'ollama', 'fixture'].includes(config.llm.provider)) {
+  if (!['claude-cli', 'openai-compatible', 'ollama', 'fixture'].includes(config.llm.provider)) {
     throw new Error(`不支援的 llm.provider：${config.llm.provider}`);
+  }
+  if (config.llm.provider === 'claude-cli' && config.privacy.requireLocalLlm) {
+    throw new Error('llm.provider=claude-cli 會把選中的原始碼送到 Anthropic，無法滿足 privacy.requireLocalLlm=true；請改為 false，或改用 llm.provider=ollama。');
   }
   if (!Number.isInteger(config.llm.maxResponseBytes) || config.llm.maxResponseBytes < 65536 || config.llm.maxResponseBytes > 16 * 1024 * 1024) {
     throw new Error('llm.maxResponseBytes 必須介於 65536 與 16777216。');
