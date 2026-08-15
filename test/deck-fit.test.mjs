@@ -56,6 +56,21 @@ test('折行不會遺失或新增內容，且優先斷在空白處', () => {
   assert.ok(rows[0].endsWith('install') || rows[0].endsWith('npm'), `預期斷在空白處，實際 ${rows[0]}`);
 });
 
+test('單行高度的說明欄放不下時會縮，不會溢出', () => {
+  const caption = { widthInches: 5.36, heightInches: 0.34, basePt: 12, minPt: 8, unitRatio: 0.5 };
+  assert.equal(fitFontSize(['在專案根目錄執行'], caption), 12);
+  const long = fitFontSize(['在乾淨 Ubuntu / Debian 終端執行；npm 前需先依 README §1.1 裝好 Node LTS（≥ 18）'], caption);
+  assert.ok(long < 12 && long >= 8, `預期縮小到 8–12pt，實際 ${long}`);
+});
+
+test('封面大標過長時降級，但仍遠大於內文下限', () => {
+  const cover = { widthInches: 11.35, heightInches: 1.25, basePt: 50, minPt: 8, unitRatio: 0.5 };
+  assert.equal(fitFontSize(['CodeReel 教學'], cover), 50);
+  const long = fitFontSize(['OpenCode + llama.cpp 本地 MCP 工作台：裝好、跑起來、驗證、first op'], cover);
+  assert.ok(long < 50, `預期縮小，實際 ${long}`);
+  assert.ok(long >= 20, `封面標題不該縮到 ${long}pt`);
+});
+
 test('本來就夠短的行不會被動到', () => {
   const lines = [' 1  npm run demo', ' 2  npm test'];
   assert.deepEqual(softWrap(lines, 40), lines);

@@ -8,9 +8,11 @@ const SLIDE_W = 13.333;
 const SLIDE_H = 7.5;
 const CODE_UNIT_RATIO = 0.6;
 const BODY_UNIT_RATIO = 0.5;
+const WIDE_TRACKING_RATIO = 0.72;
 const LINE_HEIGHT_RATIO = 1.25;
 const CODE_MIN_PT = 8;
 const BODY_MIN_PT = 12;
+const TEXT_MIN_PT = 8;
 const FIT_SAFETY = 0.92;
 const WIDE_CHARACTER = /[ᄀ-ᅟ⺀-꓏ꥠ-꥿가-힣豈-﫿︐-︙︰-﹯＀-｠￠-￦]/u;
 
@@ -96,28 +98,40 @@ function addText(slide, text, options) {
   });
 }
 
+function addFittedText(slide, text, options) {
+  const { unitRatio = BODY_UNIT_RATIO, minPt = TEXT_MIN_PT, avoidWrap = false, ...rest } = options;
+  addText(slide, text, {
+    ...rest,
+    fontSize: fitFontSize(String(text ?? '').split('\n'), {
+      widthInches: rest.w, heightInches: rest.h, basePt: rest.fontSize,
+      minPt: Math.min(minPt, rest.fontSize), unitRatio, step: 1, avoidWrap,
+    }),
+  });
+}
+
 function addBase(slide, pptx, theme, plan, item, index, count, fonts) {
   const c = theme.colors;
   slide.background = { color: c.background };
   slide.addShape(pptx.ShapeType.rect, { x: 0, y: 0, w: 0.14, h: SLIDE_H, line: { color: c.accent, transparency: 100 }, fill: { color: c.accent } });
-  addText(slide, String(item.section || '教學').toUpperCase(), {
+  addFittedText(slide, String(item.section || '教學').toUpperCase(), {
     x: 0.55, y: 0.25, w: 2.7, h: 0.25,
     fontFace: fonts.body, fontSize: 11, bold: true, charSpacing: 1.2, color: c.accent,
+    unitRatio: WIDE_TRACKING_RATIO, avoidWrap: true,
   });
-  addText(slide, item.title, {
+  addFittedText(slide, item.title, {
     x: 0.55, y: 0.54, w: 11.9, h: 0.7,
     fontFace: fonts.body, fontSize: theme.typography.slideTitlePt, bold: true, color: c.text,
   });
   if (item.subtitle) {
-    addText(slide, item.subtitle, {
+    addFittedText(slide, item.subtitle, {
       x: 0.58, y: 1.3, w: 11.4, h: 0.32,
-      fontFace: fonts.body, fontSize: 16, color: c.muted,
+      fontFace: fonts.body, fontSize: 16, color: c.muted, avoidWrap: true,
     });
   }
   slide.addShape(pptx.ShapeType.line, { x: 0.58, y: 6.98, w: 12.1, h: 0, line: { color: c.line, width: 0.7 } });
-  addText(slide, plan.projectTitle, {
+  addFittedText(slide, plan.projectTitle, {
     x: 0.58, y: 7.05, w: 5.5, h: 0.18,
-    fontFace: fonts.body, fontSize: theme.typography.footerPt, color: c.muted,
+    fontFace: fonts.body, fontSize: theme.typography.footerPt, color: c.muted, avoidWrap: true,
   });
   addText(slide, `${String(index + 1).padStart(2, '0')} / ${String(count).padStart(2, '0')}`, {
     x: 11.55, y: 7.05, w: 1.1, h: 0.18,
@@ -139,13 +153,10 @@ function addBulletList(slide, pptx, theme, bullets, options = {}) {
       x, y: rowY + 0.06, w: 0.48, h: 0.35,
       fontFace: options.codeFont || 'Cascadia Mono', fontSize: 13, bold: true, color: c.accent,
     });
-    addText(slide, bullet, {
+    addFittedText(slide, bullet, {
       x: x + 0.62, y: rowY, w: w - 0.62, h: rowH - 0.08,
       fontFace: options.bodyFont || 'Microsoft JhengHei', color: c.text, breakLine: true,
-      fontSize: fitFontSize([bullet], {
-        widthInches: w - 0.72, heightInches: rowH - 0.14, basePt: fontSize,
-        minPt: Math.min(BODY_MIN_PT, fontSize), unitRatio: BODY_UNIT_RATIO, step: 1, avoidWrap: true,
-      }),
+      fontSize, minPt: BODY_MIN_PT, avoidWrap: true,
     });
   });
 }
@@ -161,15 +172,15 @@ function addCodePanel(slide, pptx, theme, code, fonts, options = {}) {
     line: { color: c.line, width: 1 }, fill: { color: c.codeBackground },
   });
   slide.addShape(pptx.ShapeType.line, { x: x + 0.25, y: y + 0.52, w: w - 0.5, h: 0, line: { color: c.line, width: 0.6 } });
-  addText(slide, code.caption || code.language || '操作', {
-    x: x + 0.27, y: y + 0.14, w: w - 0.54, h: 0.22,
-    fontFace: fonts.body, fontSize: 12, bold: true, color: c.accentAlt,
+  addFittedText(slide, code.caption || code.language || '操作', {
+    x: x + 0.27, y: y + 0.1, w: w - 0.54, h: 0.34,
+    fontFace: fonts.body, fontSize: 12, bold: true, color: c.accentAlt, valign: 'top', breakLine: true,
   });
   const numbered = String(code.text || '').split(/\r?\n/u).map((line, index) => `${String(index + 1).padStart(2, ' ')}  ${line}`);
   const basePt = theme.typography.codePt;
   const fontSize = fitFontSize(numbered, {
     widthInches: w - 0.62, heightInches: h - 1, basePt,
-    minPt: CODE_MIN_PT, unitRatio: CODE_UNIT_RATIO, paraSpacePt: 5, avoidWrap: true,
+    minPt: CODE_MIN_PT, unitRatio: CODE_UNIT_RATIO, paraSpacePt: 5,
   });
   const unitsPerRow = Math.floor((w - 0.62) * 72 * FIT_SAFETY / (CODE_UNIT_RATIO * fontSize));
   addText(slide, softWrap(numbered, unitsPerRow).join('\n'), {
@@ -183,22 +194,24 @@ function addCover(slide, pptx, theme, plan, item, fonts, count) {
   const c = theme.colors;
   slide.background = { color: c.background };
   slide.addShape(pptx.ShapeType.rect, { x: 0, y: 0, w: SLIDE_W, h: 0.16, line: { transparency: 100 }, fill: { color: c.accent } });
-  addText(slide, item.section || 'PROJECT TRAINING', {
+  addFittedText(slide, item.section || 'PROJECT TRAINING', {
     x: 0.85, y: 0.75, w: 5.8, h: 0.32,
     fontFace: fonts.code, fontSize: 14, bold: true, charSpacing: 1.8, color: c.accent,
+    unitRatio: WIDE_TRACKING_RATIO, avoidWrap: true,
   });
-  addText(slide, item.title || plan.projectTitle, {
+  addFittedText(slide, item.title || plan.projectTitle, {
     x: 0.82, y: 1.42, w: 11.35, h: 1.25,
     fontFace: fonts.body, fontSize: theme.typography.deckTitlePt, bold: true, color: c.text,
+    valign: 'top', breakLine: true,
   });
-  addText(slide, item.subtitle || plan.courseTitle, {
+  addFittedText(slide, item.subtitle || plan.courseTitle, {
     x: 0.86, y: 2.86, w: 10.6, h: 0.65,
-    fontFace: fonts.body, fontSize: theme.typography.subheadingPt, color: c.muted,
+    fontFace: fonts.body, fontSize: theme.typography.subheadingPt, color: c.muted, breakLine: true,
   });
   slide.addShape(pptx.ShapeType.line, { x: 0.86, y: 4.08, w: 4.3, h: 0, line: { color: c.accentAlt, width: 2 } });
-  addText(slide, plan.summary, {
+  addFittedText(slide, plan.summary, {
     x: 0.86, y: 4.32, w: 9.15, h: 1.08,
-    fontFace: fonts.body, fontSize: 18, color: c.text, breakLine: true,
+    fontFace: fonts.body, fontSize: 18, color: c.text, breakLine: true, valign: 'top',
   });
   addText(slide, `${count} 頁 · 逐頁旁白 · 可追溯證據`, {
     x: 0.86, y: 6.65, w: 5.4, h: 0.3,
@@ -218,7 +231,7 @@ function addAgenda(slide, pptx, theme, item, fonts) {
       fontFace: fonts.code, fontSize: 24, bold: true, color: index === 0 ? c.accent : c.accentAlt,
     });
     slide.addShape(pptx.ShapeType.line, { x: 1.68, y: y + rowH - 0.08, w: 10.55, h: 0, line: { color: c.line, width: 0.8 } });
-    addText(slide, bullet, {
+    addFittedText(slide, bullet, {
       x: 1.68, y, w: 10.45, h: rowH - 0.12,
       fontFace: fonts.body, fontSize: 18, bold: true, color: c.text, valign: 'mid', breakLine: true,
     });
@@ -228,17 +241,15 @@ function addAgenda(slide, pptx, theme, item, fonts) {
 function addSummary(slide, pptx, theme, item, fonts) {
   const c = theme.colors;
   item.bullets.slice(0, 5).forEach((bullet, index) => {
-    const characters = [...String(bullet || '')].length;
-    const fontSize = characters > 72 ? 16 : (characters > 52 ? 18 : 20);
     const y = 1.66 + index * 0.98;
     slide.addShape(pptx.ShapeType.line, { x: 0.78, y: y + 0.76, w: 11.6, h: 0, line: { color: c.line, width: 0.7 } });
     addText(slide, String(index + 1), {
       x: 0.8, y, w: 0.7, h: 0.62,
       fontFace: fonts.code, fontSize: 28, bold: true, color: c.accent,
     });
-    addText(slide, bullet, {
+    addFittedText(slide, bullet, {
       x: 1.65, y, w: 10.85, h: 0.78,
-      fontFace: fonts.body, fontSize, bold: true, color: c.text, breakLine: true,
+      fontFace: fonts.body, fontSize: 20, bold: true, color: c.text, breakLine: true,
     });
   });
 }
